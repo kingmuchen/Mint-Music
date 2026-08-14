@@ -25,6 +25,26 @@
 
 薄荷音乐（MintMusic）是一个开源的安卓音乐播放器，UI 与交互参考 [CeruMusic](https://github.com/timeshiftsauce/CeruMusic) 的设计理念，使用 Flutter 从零实现。支持多平台在线音乐聚合搜索、本地音乐管理、Apple Music 风格逐字歌词（AMLL）、下载、音效增强与音源插件扩展。
 
+## 截图预览
+
+<p align="center">
+  <img src="docs/screenshots/light/02_leaderboard.png" width="150" alt="排行榜">
+  <img src="docs/screenshots/light/04_search.png" width="150" alt="搜索">
+  <img src="docs/screenshots/light/06_library.png" width="150" alt="歌单">
+  <img src="docs/screenshots/light/09_settings.png" width="150" alt="设置">
+  <br>
+  <em>浅色模式</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/dark/07_local.png" width="150" alt="本地音乐">
+  <img src="docs/screenshots/dark/08_download.png" width="150" alt="下载">
+  <img src="docs/screenshots/dark/12_playlist_detail.png" width="150" alt="歌单详情">
+  <img src="docs/screenshots/dark/13_recognize.png" width="150" alt="识曲">
+  <br>
+  <em>深色模式</em>
+</p>
+
 ## 功能特性
 
 ### 🎵 在线音乐
