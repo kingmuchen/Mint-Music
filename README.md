@@ -28,21 +28,14 @@
 ## 截图预览
 
 <p align="center">
-  <img src="docs/screenshots/light/02_leaderboard.png" width="150" alt="排行榜">
-  <img src="docs/screenshots/light/04_search.png" width="150" alt="搜索">
-  <img src="docs/screenshots/light/06_library.png" width="150" alt="歌单">
-  <img src="docs/screenshots/light/09_settings.png" width="150" alt="设置">
+  <img src="docs/screenshots/01.jpg" width="150" alt="截图 1">
+  <img src="docs/screenshots/02.jpg" width="150" alt="截图 2">
+  <img src="docs/screenshots/03.jpg" width="150" alt="截图 3">
+  <img src="docs/screenshots/04.jpg" width="150" alt="截图 4">
   <br>
-  <em>浅色模式</em>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/dark/07_local.png" width="150" alt="本地音乐">
-  <img src="docs/screenshots/dark/08_download.png" width="150" alt="下载">
-  <img src="docs/screenshots/dark/12_playlist_detail.png" width="150" alt="歌单详情">
-  <img src="docs/screenshots/dark/13_recognize.png" width="150" alt="识曲">
-  <br>
-  <em>深色模式</em>
+  <img src="docs/screenshots/05.jpg" width="150" alt="截图 5">
+  <img src="docs/screenshots/06.jpg" width="150" alt="截图 6">
+  <img src="docs/screenshots/07.jpg" width="150" alt="截图 7">
 </p>
 
 ## 功能特性
