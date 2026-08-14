@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../application/settings_providers.dart';
@@ -3118,6 +3119,19 @@ class _AboutContent extends ConsumerWidget {
     );
   }
 
+  Future<void> _openUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('无法打开链接: $url'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Widget _buildContactGroup(BuildContext context, ThemeColors colors) {
     return _SettingGroup(
       title: '联系方式',
@@ -3130,11 +3144,9 @@ class _AboutContent extends ConsumerWidget {
           subtitle: '提交 Bug 或功能建议',
           trailing: Icon(Icons.open_in_new, size: 18, color: colors.textHint),
           colors: colors,
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('即将跳转到问题反馈页面'),
-              backgroundColor: colors.primary,
-            ),
+          onTap: () => _openUrl(
+            context,
+            'https://github.com/kingmuchen/Mint-Music/issues',
           ),
         ),
         _SettingDivider(colors: colors),
@@ -3144,12 +3156,7 @@ class _AboutContent extends ConsumerWidget {
           subtitle: '访问项目主页',
           trailing: Icon(Icons.open_in_new, size: 18, color: colors.textHint),
           colors: colors,
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('即将跳转到官方网站'),
-              backgroundColor: colors.primary,
-            ),
-          ),
+          onTap: () => _openUrl(context, 'https://kingmc.mintmusic.ccwu.cc'),
         ),
         _SettingDivider(colors: colors),
         _SettingRow(
@@ -3158,12 +3165,7 @@ class _AboutContent extends ConsumerWidget {
           subtitle: '查看源代码',
           trailing: Icon(Icons.open_in_new, size: 18, color: colors.textHint),
           colors: colors,
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('即将跳转到开源仓库'),
-              backgroundColor: colors.primary,
-            ),
-          ),
+          onTap: () => _openUrl(context, 'https://github.com/kingmuchen/Mint-Music'),
         ),
       ],
     );
