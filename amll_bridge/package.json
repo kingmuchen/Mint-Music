@@ -1,0 +1,10 @@
+{
+  "name": "amll-bridge",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "install:amll": "cd .. && npm install @applemusic-like-lyrics/core && copy node_modules\\@applemusic-like-lyrics\\core\\dist\\style.css ..\\assets\\amll\\amll-core.css && echo AMLL assets prepared",
+    "build": "node build.mjs"
+  }
+}
