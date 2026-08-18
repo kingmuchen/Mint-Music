@@ -132,6 +132,23 @@ try{eval(atob("$jsB64"))}catch(e){}
     }
   }
 
+  /// 预热字体缓存：在后台 isolate 中完成 base64 编码。
+  /// 应用启动时调用可避免首次打开歌词页时字体编码阻塞 UI。
+  static bool _fontsPrewarmed = false;
+  static Future<void> prewarmFonts(String fontFamily) async {
+    if (_fontsPrewarmed) return;
+    _fontsPrewarmed = true;
+    try {
+      if (fontFamily == 'lyricfont') {
+        await _fontBase64('assets/fonts/lyricfont.ttf');
+      } else if (fontFamily == 'PingFangSC-Semibold') {
+        await _fontBase64('assets/fonts/PingFangSC-Semibold.woff2');
+      }
+    } catch (e) {
+      debugPrint('[AMLL] prewarmFonts error: $e');
+    }
+  }
+
   Future<void> _loadHtml() async {
     await prewarm();
     if (mounted && !_disposed) setState(() {});
@@ -205,27 +222,29 @@ try{eval(atob("$jsB64"))}catch(e){}
 
   Future<void> _sendAll() async {
     if (!_canUseWebView || _cachedHtml == null) return;
-    // 先应用字体/对齐等样式，再构建歌词行：
-    // 若先建行再改 CSS，所有歌词行的字号/对齐会触发二次 reflow/重布局，
-    // 表现为歌词加载后（第一句/定位时）再卡一下。
-    await _sendConfig();
-    if (!_canUseWebView) return;
-    // 字体必须在创建歌词行前完成，否则字体尺寸变化会触发 AMLL 的
-    // ResizeObserver，并在歌词已经可见后再次强制重排当前句。
+
+    // 首次初始化时，并发执行配置、字体注入和歌词发送，减少串行等待。
+    // 后续更新时，仅发送歌词和播放状态，跳过已完成的步骤。
     if (!_fontsInjected) {
       _fontsInjected = true;
-      await _injectFonts();
+      // 并发执行配置和字体注入，不互相依赖
+      await Future.wait([
+        _sendConfig(),
+        _injectFonts(),
+      ]);
+    } else {
+      await _sendConfig();
     }
     if (!_canUseWebView) return;
+
     _linesSig = _makeSignature(widget.lines);
-    await _sendLyricLines();
+    // 合并歌词发送和播放状态到单次 JS 调用，减少 IPC 开销
+    await _sendLyricLinesAndPlaying();
     if (!_canUseWebView) return;
-    await _sendPlaying(widget.isPlaying);
+
     // 先在隐藏状态下启动 AMLL 原生 spring，并在下一布局帧后再显示，
     // 避免同步 calcLayout 与 Flutter/WebView 合成器在同一可见帧争抢资源。
     await _revealAfterCurrentTime();
-    // 给 AMLL 一点时间完成当前句的布局/渲染，再启动平滑跟随的 ticker，
-    // 避免初始化渲染与高频更新互相争抢。
     if (!_canUseWebView) return;
     _syncAnchor(widget.currentTimeMs, widget.isPlaying);
     if (mounted && !_disposed && widget.isActive) {
@@ -469,6 +488,91 @@ try{eval(atob("$jsB64"))}catch(e){}
     );
     if (currentIndex <= 0) return widget.currentTimeMs;
     return widget.lines[currentIndex - 1].startTimeMs;
+  }
+
+  /// 合并歌词发送和播放状态到单次 JS 调用，减少 IPC 开销。
+  Future<void> _sendLyricLinesAndPlaying() async {
+    if (!_canUseWebView) return;
+    final sig = Object.hash(
+      _linesSig,
+      widget.showTranslation,
+      widget.showRoman,
+    );
+    final initTime = _initialLayoutTime();
+
+    // 检查歌词缓存
+    String lyricJson;
+    if (_cachedLyricJson != null && sig == _cachedLyricSig) {
+      lyricJson = _cachedLyricJson!;
+    } else {
+      final lines = widget.lines;
+      final adjusted = List<Map<String, dynamic>>.generate(lines.length, (i) {
+        final l = lines[i];
+        final lineEnd = (i < lines.length - 1)
+            ? lines[i + 1].startTimeMs
+            : l.endTimeMs;
+        var words = l.words
+            .map(
+              (w) =>
+                  (word: w.word, startTime: w.startTimeMs, endTime: w.endTimeMs),
+            )
+            .toList();
+        words.sort((a, b) => a.startTime.compareTo(b.startTime));
+        for (int j = 0; j < words.length; j++) {
+          if (words[j].endTime > lineEnd) {
+            words[j] = (
+              word: words[j].word,
+              startTime: words[j].startTime,
+              endTime: lineEnd,
+            );
+          }
+          if (j < words.length - 1) {
+            final nextStart = words[j + 1].startTime;
+            if (words[j].endTime > nextStart) {
+              words[j] = (
+                word: words[j].word,
+                startTime: words[j].startTime,
+                endTime: nextStart,
+              );
+            } else if (words[j].endTime < nextStart) {
+              words[j] = (
+                word: words[j].word,
+                startTime: words[j].startTime,
+                endTime: nextStart,
+              );
+            }
+          }
+        }
+        return {
+          'startTime': l.startTimeMs,
+          'endTime': lineEnd,
+          'words': words
+              .map(
+                (w) => {
+                  'word': w.word,
+                  'startTime': w.startTime,
+                  'endTime': w.endTime,
+                },
+              )
+              .toList(),
+          'translatedLyric': widget.showTranslation ? l.translatedLyric : null,
+          'romanLyric': widget.showRoman ? l.romanLyric : null,
+          'isBG': l.isBG,
+          'isDuet': l.isDuet,
+          'adLibText': widget.showTranslation ? l.adLibText : null,
+        };
+      });
+      lyricJson = jsonEncode(adjusted);
+      _cachedLyricJson = lyricJson;
+      _cachedLyricSig = sig;
+    }
+
+    // 单次 JS 调用：同时设置歌词和播放状态
+    final escapedJson = _escapeJsStr(lyricJson);
+    await _controller!.evaluateJavascript(
+      source:
+          "AmllBridge.setLyricLines('$escapedJson', $initTime);AmllBridge.setPlaying(${widget.isPlaying ? 'true' : 'false'})",
+    );
   }
 
   Future<void> _revealAfterCurrentTime() async {

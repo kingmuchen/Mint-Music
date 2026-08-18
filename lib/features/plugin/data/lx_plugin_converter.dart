@@ -4,7 +4,6 @@ class LxPluginConverter {
   String convert(String originalCode) {
     final info = _parseScriptInfo(originalCode);
     final pluginInfoJson = jsonEncode(info);
-    final escapedCode = jsonEncode(originalCode);
 
     return '''
 var __lxInitError = null;
@@ -12,10 +11,13 @@ var __lxInitDone = false;
 var __lxInitReported = false;
 var __lxRequestHandler = null;
 var __lxUpdateAlertSent = false;
-var __timerIdCounter = 0;
+var __lxFallbackTimerIdCounter = 0;
 
 var pluginInfo = $pluginInfoJson;
-var originalPluginCode = $escapedCode;
+// The original LX source is executed by PluginHost in a separate evaluate()
+// call. Keeping it out of this adapter avoids a large string literal and a
+// nested new Function compilation inside QuickJS.
+var originalPluginCode = '';
 var sources = {};
 var sourceActions = {};
 
@@ -301,28 +303,27 @@ function __lxRequest(url, options, callback) {
   return promise;
 }
 
-var mockLx = {
+  var mockLx = {
   EVENT_NAMES: EVENT_NAMES,
   request: __lxRequest,
   send: function(eventName, data) {
     var normalizedEvent = __lxEventName(eventName);
     if (normalizedEvent === 'inited' || normalizedEvent === 'initialized') {
-      // LX plugins use send() as a synchronous lifecycle event. Returning a
-      // Promise here can leave rejected lifecycle calls unhandled in scripts
-      // that intentionally do not await the event.
-      if (__lxInitReported) return;
+      // Keep the lifecycle side effect synchronous, but return the Promise
+      // required by the mobile LX contract for callers that await or chain it.
+      if (__lxInitReported) return Promise.resolve();
       __lxInitReported = true;
       __lxNormalizeSources(data);
-      return;
+      return Promise.resolve();
     }
     if (normalizedEvent === 'updatealert' || normalizedEvent === 'update') {
       if (!__lxUpdateAlertSent) {
         __lxUpdateAlertSent = true;
         try { cerumusic.NoticeCenter('update', data); } catch(e) {}
       }
-      return;
+      return Promise.resolve();
     }
-    console.log('[LX] 忽略不支持的事件: ' + eventName);
+    return Promise.reject(new Error('The event is not supported: ' + eventName));
   },
   on: function(eventName, handler) {
     var normalizedEvent = __lxEventName(eventName);
@@ -334,7 +335,9 @@ var mockLx = {
         var runtimeGlobal = Function('return this')();
         runtimeGlobal.requestHandler = handler;
       } catch(e) {}
+      return Promise.resolve();
     }
+    return Promise.reject(new Error('The event is not supported: ' + eventName));
   },
   utils: {
     crypto: {
@@ -361,9 +364,9 @@ var mockLx = {
     rawScript: originalPluginCode
   },
   // Match the API contract used by CeruMusic and LX Music desktop plugins.
-  version: '1.0.0',
-  apiVersion: '1.0.0',
-  env: 'nodejs'
+  version: '2.0.0',
+  apiVersion: '2.0.0',
+  env: 'mobile'
 };
 
 var lx = mockLx;
@@ -428,12 +431,23 @@ function getLyric(source, musicInfo) {
   });
 }
 
-function initializePlugin() {
+function initializePluginEnvironment() {
   try {
     // Keep the plugin in a small sandbox. Some Android flutter_js builds expose
     // timer names as non-callable host values on the real global object.
     var __runtimeGlobal = {};
     try { __runtimeGlobal = Function('return this')(); } catch(e) {}
+    // Reuse the host's Dart-backed timer bridge. The native flutter_js timer
+    // entrypoint is unsafe on some Android/Windows builds and must never be
+    // called for a converted LX plugin.
+    var __mintSetTimeout = typeof __mintSafeSetTimeout === 'function'
+      ? __mintSafeSetTimeout : null;
+    var __mintClearTimeout = typeof __mintSafeClearTimeout === 'function'
+      ? __mintSafeClearTimeout : null;
+    var __mintSetInterval = typeof __mintSafeSetInterval === 'function'
+      ? __mintSafeSetInterval : null;
+    var __mintClearInterval = typeof __mintSafeClearInterval === 'function'
+      ? __mintSafeClearInterval : null;
     var __nativeSetTimeout = __runtimeGlobal && typeof __runtimeGlobal.setTimeout === 'function'
       ? __runtimeGlobal.setTimeout : null;
     var __nativeClearTimeout = __runtimeGlobal && typeof __runtimeGlobal.clearTimeout === 'function'
@@ -444,66 +458,56 @@ function initializePlugin() {
       ? __runtimeGlobal.clearInterval : null;
 
     var __lxSetTimeout = function(callback, delay) {
+      if (__mintSetTimeout) {
+        try { return __mintSetTimeout.apply(null, arguments); } catch(e) {}
+      }
       if (__nativeSetTimeout) {
         try { return __nativeSetTimeout.call(__runtimeGlobal, callback, delay); } catch(e) {}
       }
       // There is no asynchronous timer primitive in some flutter_js Android
       // builds. Do not invoke a timeout callback synchronously: that would
       // reject network requests before the Dart HTTP bridge can respond.
-      var timerId = ++__timerIdCounter;
+      var timerId = ++__lxFallbackTimerIdCounter;
       return timerId;
     };
     var __lxClearTimeout = function(timerId) {
+      if (__mintClearTimeout) {
+        try { __mintClearTimeout(timerId); return; } catch(e) {}
+      }
       if (__nativeClearTimeout) {
         try { __nativeClearTimeout.call(__runtimeGlobal, timerId); } catch(e) {}
       }
     };
     var __lxSetInterval = function(callback, delay) {
+      if (__mintSetInterval) {
+        try { return __mintSetInterval.apply(null, arguments); } catch(e) {}
+      }
       if (__nativeSetInterval) {
         try { return __nativeSetInterval.call(__runtimeGlobal, callback, delay); } catch(e) {}
       }
-      var timerId = ++__timerIdCounter;
+      var timerId = ++__lxFallbackTimerIdCounter;
       return timerId;
     };
     var __lxClearInterval = function(timerId) {
+      if (__mintClearInterval) {
+        try { __mintClearInterval(timerId); return; } catch(e) {}
+      }
       if (__nativeClearInterval) {
         try { __nativeClearInterval.call(__runtimeGlobal, timerId); } catch(e) {}
       }
     };
-    var pluginFunction = new Function(
-      'globalThis', 'lx', 'console', 'setTimeout', 'clearTimeout',
-      'setInterval', 'clearInterval', 'Buffer', 'JSON', 'require',
-      'module', 'exports', 'process',
-      originalPluginCode
-    );
-    var moduleObj = { exports: {} };
-    var globalObj = {
-      lx: mockLx,
-      setTimeout: __lxSetTimeout,
-      clearTimeout: __lxClearTimeout,
-      setInterval: __lxSetInterval,
-      clearInterval: __lxClearInterval,
-      Buffer: Buffer,
-      JSON: JSON,
-      console: console,
-      process: { env: { NODE_ENV: 'production' } }
-    };
-    pluginFunction(
-      globalObj,
-      mockLx,
-      console,
-      __lxSetTimeout,
-      __lxClearTimeout,
-      __lxSetInterval,
-      __lxClearInterval,
-      Buffer,
-      JSON,
-      function() { return {}; },
-      moduleObj,
-      moduleObj.exports,
-      { env: { NODE_ENV: 'production' } }
-    );
-    __lxInitDone = true;
+    // The original script is evaluated by the host after this environment is
+    // ready. Expose the same globals that the former Function wrapper passed
+    // as parameters, without compiling the large source as a nested function.
+    __runtimeGlobal = Function('return this')();
+    __runtimeGlobal.lx = mockLx;
+    __runtimeGlobal.setTimeout = __lxSetTimeout;
+    __runtimeGlobal.clearTimeout = __lxClearTimeout;
+    __runtimeGlobal.setInterval = __lxSetInterval;
+    __runtimeGlobal.clearInterval = __lxClearInterval;
+    __runtimeGlobal.Buffer = Buffer;
+    __runtimeGlobal.process = { env: { NODE_ENV: 'production' } };
+    __runtimeGlobal.require = function() { return {}; };
   } catch(error) {
     __lxInitError = __lxSafeError(error);
     __lxInitDone = true;
@@ -511,7 +515,11 @@ function initializePlugin() {
   }
 }
 
-initializePlugin();
+function __lxFinalizePluginInitialization() {
+  __lxInitDone = true;
+}
+
+initializePluginEnvironment();
 
 module.exports = {
   pluginInfo: pluginInfo,

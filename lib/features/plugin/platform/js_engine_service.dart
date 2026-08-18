@@ -12,11 +12,20 @@ import 'package:pointycastle/export.dart' as pc;
 class JsEngineService {
   JavascriptRuntime? _runtime;
   late final Dio _dio;
+  final Map<int, Timer> _timers = {};
+  final Set<int> _activeTimerIds = <int>{};
 
   bool _initialized = false;
+  bool _runtimeFaulted = false;
 
   static const String _apiVersion = '1.0.3';
   static const String _environment = 'nodejs';
+  static const int _quickJsTimeoutMilliseconds = 5000;
+  static const int _maxActiveTimers = 256;
+  static const int _minTimerDelayMilliseconds = 1;
+  static const int _maxTimerDelayMilliseconds = 24 * 60 * 60 * 1000;
+
+  static int _resultVarSeq = 0;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -31,14 +40,39 @@ class JsEngineService {
         receiveTimeout: const Duration(seconds: 15),
       );
 
-    _runtime = getJavascriptRuntime();
+    // flutter_js 的 QuickJS 默认 JS 栈上限仅 1MB（jsSetMaxStackSize），大型
+    // 洛雪插件（如 YNX-Pro/玉宁熙 系列）体积大、混淆深，加载/初始化时容易
+    // 超出栈上限抛出 "InternalError: stack overflow"。
+    //
+    // 注意：不要把这个上限设得过大。QuickJS 只有在 C 栈用量超过该上限时才
+    // 抛出可捕获的 JS "stack overflow"，而 evaluate 运行在 Dart 线程上，
+    // 线程的原生栈一般只有 1MB 左右（Android 引擎线程更小）。若 JS 上限大于
+    // 原生栈（例如 8MB），一旦插件递归较深会先撑爆原生栈导致进程段错误闪退，
+    // 而不是抛可捕获的 JS 异常。这里恢复 flutter_js 的默认 1MB：512KB 会让
+    // 大型混淆插件在正常解析阶段过早失败。真正的保护由插件加载的分阶段执行、
+    // void completion value 和上层超时共同提供；不要盲目提高到 8MB 以上。
+    //
+    // 另外 getJavascriptRuntime 只在 Android 分支读取 extraArgs['stackSize']，
+    // Windows/Linux 分支会忽略该参数，所以 FFI 平台直接构造 QuickJsRuntime2
+    // 统一指定安全栈上限；iOS/macOS 走 JavascriptCore，无 JS 栈上限概念。
+    if (Platform.isAndroid || Platform.isWindows || Platform.isLinux) {
+      _runtime = QuickJsRuntime2(
+        stackSize: 1024 * 1024,
+        timeout: _quickJsTimeoutMilliseconds,
+      );
+    } else {
+      _runtime = getJavascriptRuntime();
+    }
     _runtime!.onMessage('httpRequest', _handleHttpRequest);
     _runtime!.onMessage('pluginNotice', _handlePluginNotice);
     _runtime!.onMessage('pluginLog', _handlePluginLog);
     _runtime!.onMessage('cryptoRequest', _handleCryptoRequest);
     _runtime!.onMessage('lxZlib', _handleZlibRequest);
+    _runtime!.onMessage('timerRequest', _handleTimerRequest);
+    _runtime!.onMessage('timerCancel', _handleTimerCancel);
 
     _initialized = true;
+    _runtimeFaulted = false;
 
     print('[JsEngine] 初始化完成');
   }
@@ -51,10 +85,45 @@ class JsEngineService {
   }
 
   JsEvalResult evaluate(String code) {
-    return runtime.evaluate(code);
+    if (_runtimeFaulted) {
+      return JsEvalResult(
+        '插件 JS 运行时已被隔离（此前执行超时或被中断）',
+        StateError('JavaScript runtime is faulted'),
+        isError: true,
+      );
+    }
+    try {
+      final result = runtime.evaluate(code);
+      if (_isHardExecutionFailure(result)) {
+        _markRuntimeFaulted();
+      }
+      return result;
+    } on StackOverflowError catch (e) {
+      // flutter_js 把超大插件 JS 对象桥接为 Dart 值（_jsToDart）或释放
+      // JS 引用（JSRef.freeRecursive）时可能耗尽 Dart 调用栈。
+      // StackOverflowError 是 Error 而非 Exception：若不拦截，它会一路
+      // 冒泡到页面 catch 后以原始 "Stack Overflow" 文本展示，用户完全
+      // 看不懂。这里统一转为带说明的错误结果，让上层可读地提示用户。
+      _markRuntimeFaulted();
+      return JsEvalResult('插件脚本过大，JS 引擎栈溢出', e, isError: true);
+    }
+  }
+
+  bool get isRuntimeHealthy => _initialized && !_runtimeFaulted;
+
+  bool _isHardExecutionFailure(JsEvalResult result) {
+    if (!result.isError) return false;
+    final message = result.stringResult.toLowerCase();
+    return message.contains('interrupted') ||
+        message.contains('timeout') ||
+        message.contains('timed out') ||
+        message.contains('execution limit') ||
+        message.contains('out of memory') ||
+        message.contains('memory limit');
   }
 
   void _executePendingJob() {
+    if (_runtimeFaulted) return;
     for (var i = 0; i < 10; i++) {
       final hasMore = runtime.executePendingJob();
       if (hasMore == 0) break;
@@ -86,7 +155,7 @@ class JsEngineService {
     throw ArgumentError('Cannot parse args of type ${args.runtimeType}');
   }
 
-  String injectCeruMusicApi() {
+  JsEvalResult injectCeruMusicApi() {
     final apiCode =
         '''
 var __pendingRequests = {};
@@ -96,47 +165,83 @@ var __requestIdCounter = 0;
 var __cryptoRequestIdCounter = 0;
 var __zlibRequestIdCounter = 0;
 var __timerIdCounter = 0;
+var __mintTimerCallbacks = {};
+var __mintActiveTimerCount = 0;
 
-// Some flutter_js Android builds expose timer names as non-callable host
-// values. Install callable functions on the actual JS global so old converted
-// LX plugins are compatible too. New plugins receive the same functions in a
-// private sandbox from lx_plugin_converter.dart.
+// flutter_js 的部分平台（Windows quickjs_c_bridge.dll、部分 Android .so）
+// 暴露了原生 setTimeout/setInterval 宿主函数，但这些函数一旦被调用就会直接
+// 段错误崩溃整个进程（不是可捕获的 JS 异常，try/catch 拦不住）。玉宁熙等
+// 插件在加载时顶层调用 setTimeout 触发版本检查，正是闪退的根因。
+// Timer callbacks are dispatched by Dart's event loop through timerRequest.
+// This avoids the unsafe native timer entrypoints exposed by some flutter_js
+// builds while preserving the semantics expected by LX/CeruMusic plugins.
 var __mintRuntimeGlobal = null;
 try { __mintRuntimeGlobal = Function('return this')(); } catch(e) {}
-var __mintNativeSetTimeout = __mintRuntimeGlobal && typeof __mintRuntimeGlobal.setTimeout === 'function'
-  ? __mintRuntimeGlobal.setTimeout : null;
-var __mintNativeClearTimeout = __mintRuntimeGlobal && typeof __mintRuntimeGlobal.clearTimeout === 'function'
-  ? __mintRuntimeGlobal.clearTimeout : null;
-var __mintNativeSetInterval = __mintRuntimeGlobal && typeof __mintRuntimeGlobal.setInterval === 'function'
-  ? __mintRuntimeGlobal.setInterval : null;
-var __mintNativeClearInterval = __mintRuntimeGlobal && typeof __mintRuntimeGlobal.clearInterval === 'function'
-  ? __mintRuntimeGlobal.clearInterval : null;
+var __mintScheduleTimer = function(callback, delay, repeat, callbackArgs) {
+  if (typeof callback !== 'function') throw new TypeError('callback must be a function');
+  if (__mintActiveTimerCount >= 256) {
+    if (typeof console !== 'undefined' && console.error) console.error('Too many active timers');
+    return 0;
+  }
+  var timerId = ++__timerIdCounter;
+  __mintTimerCallbacks[timerId] = {
+    callback: callback,
+    repeat: !!repeat,
+    args: callbackArgs || []
+  };
+  __mintActiveTimerCount++;
+  try {
+    sendMessage('timerRequest', JSON.stringify({
+      timerId: timerId,
+      delay: Number(delay) || 0,
+      repeat: !!repeat
+    }));
+  } catch(e) {
+    delete __mintTimerCallbacks[timerId];
+    __mintActiveTimerCount--;
+    throw e;
+  }
+  return timerId;
+};
+var __mintCancelTimer = function(timerId) {
+  if (__mintTimerCallbacks[timerId]) {
+    delete __mintTimerCallbacks[timerId];
+    if (__mintActiveTimerCount > 0) __mintActiveTimerCount--;
+  }
+  try { sendMessage('timerCancel', JSON.stringify({ timerId: Number(timerId) || 0 })); } catch(e) {}
+};
+var __mintFireTimer = function(timerId) {
+  var entry = __mintTimerCallbacks[timerId];
+  if (!entry || typeof entry.callback !== 'function') return false;
+  if (!entry.repeat) {
+    delete __mintTimerCallbacks[timerId];
+    if (__mintActiveTimerCount > 0) __mintActiveTimerCount--;
+  }
+  try {
+    entry.callback.apply(null, entry.args || []);
+  } catch(e) {
+    try { console.error('[MintMusic timer] ' + ((e && e.stack) || e)); } catch(_) {}
+  }
+  return true;
+};
 var __mintSafeSetTimeout = function(callback, delay) {
-  if (__mintNativeSetTimeout) {
-    try { return __mintNativeSetTimeout.call(__mintRuntimeGlobal, callback, delay); } catch(e) {}
-  }
-  // A synchronous fallback would fire request timeouts before the Dart HTTP
-  // bridge returns. The bridge already enforces the real request timeout.
-  var timerId = ++__timerIdCounter;
-  return timerId;
+  return __mintScheduleTimer(
+    callback,
+    delay,
+    false,
+    Array.prototype.slice.call(arguments, 2)
+  );
 };
-var __mintSafeClearTimeout = function(timerId) {
-  if (__mintNativeClearTimeout) {
-    try { __mintNativeClearTimeout.call(__mintRuntimeGlobal, timerId); } catch(e) {}
-  }
-};
+var __mintSafeClearTimeout = function(timerId) { __mintCancelTimer(timerId); };
 var __mintSafeSetInterval = function(callback, delay) {
-  if (__mintNativeSetInterval) {
-    try { return __mintNativeSetInterval.call(__mintRuntimeGlobal, callback, delay); } catch(e) {}
-  }
-  var timerId = ++__timerIdCounter;
-  return timerId;
+  return __mintScheduleTimer(
+    callback,
+    delay,
+    true,
+    Array.prototype.slice.call(arguments, 2)
+  );
 };
-var __mintSafeClearInterval = function(timerId) {
-  if (__mintNativeClearInterval) {
-    try { __mintNativeClearInterval.call(__mintRuntimeGlobal, timerId); } catch(e) {}
-  }
-};
+var __mintSafeClearInterval = function(timerId) { __mintCancelTimer(timerId); };
 try {
   if (__mintRuntimeGlobal) {
     __mintRuntimeGlobal.setTimeout = __mintSafeSetTimeout;
@@ -626,8 +731,10 @@ function __zlibRequest(action, data) {
 }
 ''';
 
-    evaluate(apiCode);
-    return apiCode;
+    // Install the bridge exactly once. Returning the evaluation result lets the
+    // host report an initialization error without evaluating this large API
+    // block a second time.
+    return evaluate(apiCode);
   }
 
   void _handleHttpRequest(dynamic args) {
@@ -1108,7 +1215,10 @@ function __zlibRequest(action, data) {
     Duration timeout = const Duration(seconds: 30),
   }) async {
     try {
-      final resultVar = '__pmr_${DateTime.now().millisecondsSinceEpoch}';
+      // 并发调用时毫秒时间戳可能重复，追加自增序号保证轮询变量唯一，
+      // 避免并行调用互相覆盖结果状态。
+      final resultVar =
+          '__pmr_${DateTime.now().millisecondsSinceEpoch}_${_resultVarSeq++}';
 
       final wrappedCode =
           '''
@@ -1142,7 +1252,15 @@ try {
 }
 ''';
 
-      evaluate(wrappedCode);
+      final wrappedEvalResult = evaluate(wrappedCode);
+      if (wrappedEvalResult.isError) {
+        // 方法表达式同步执行即失败（例如插件脚本递归过深触发 Dart 栈溢出），
+        // 直接抛错而不是空转轮询到超时。
+        print(
+          '[JsEngine] callPluginMethod 初始化失败: ${wrappedEvalResult.stringResult}',
+        );
+        throw Exception(wrappedEvalResult.stringResult);
+      }
       _executePendingJob();
 
       print('[JsEngine] callPluginMethod: 等待Promise解析... ($resultVar)');
@@ -1154,6 +1272,9 @@ try {
         _executePendingJob();
 
         final statusResult = evaluate('$resultVar.__status');
+        if (statusResult.isError) {
+          throw Exception('插件 JS 运行时不可用: ${statusResult.stringResult}');
+        }
         final status = statusResult.stringResult;
 
         if (pollCount % 20 == 0) {
@@ -1164,6 +1285,9 @@ try {
 
         if (status == 'resolved') {
           final valueResult = evaluate('$resultVar.__value');
+          if (valueResult.isError) {
+            throw Exception('插件结果读取失败: ${valueResult.stringResult}');
+          }
           final value = valueResult.stringResult;
 
           evaluate('$resultVar = null');
@@ -1196,6 +1320,9 @@ try {
 
         if (status == 'rejected') {
           final valueResult = evaluate('$resultVar.__value');
+          if (valueResult.isError) {
+            throw Exception('插件错误读取失败: ${valueResult.stringResult}');
+          }
           final value = valueResult.stringResult;
 
           evaluate('$resultVar = null');
@@ -1222,10 +1349,94 @@ try {
     }
   }
 
+  void _handleTimerRequest(dynamic args) {
+    try {
+      final data = _parseArgs(args);
+      final timerId = _readTimerId(data['timerId']);
+      if (timerId == null || timerId <= 0) return;
+
+      final repeat =
+          data['repeat'] == true || data['repeat']?.toString() == 'true';
+      final requestedDelay = data['delay'] is num
+          ? (data['delay'] as num).round()
+          : int.tryParse(data['delay']?.toString() ?? '') ?? 0;
+      final delay = requestedDelay
+          .clamp(_minTimerDelayMilliseconds, _maxTimerDelayMilliseconds)
+          .toInt();
+
+      _timers.remove(timerId)?.cancel();
+      _activeTimerIds.remove(timerId);
+      if (_activeTimerIds.length >= _maxActiveTimers) {
+        print('[JsEngine] 忽略定时器 $timerId: 已达到 $_maxActiveTimers 个上限');
+        return;
+      }
+
+      _activeTimerIds.add(timerId);
+      final duration = Duration(milliseconds: delay);
+      final timer = repeat
+          ? Timer.periodic(duration, (_) => _fireTimer(timerId, repeat: true))
+          : Timer(duration, () => _fireTimer(timerId, repeat: false));
+      _timers[timerId] = timer;
+    } catch (e) {
+      print('[JsEngine] 定时器创建失败: $e');
+    }
+  }
+
+  void _handleTimerCancel(dynamic args) {
+    try {
+      final data = _parseArgs(args);
+      final timerId = _readTimerId(data['timerId']);
+      if (timerId == null) return;
+      _timers.remove(timerId)?.cancel();
+      _activeTimerIds.remove(timerId);
+    } catch (e) {
+      print('[JsEngine] 定时器取消失败: $e');
+    }
+  }
+
+  int? _readTimerId(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  void _fireTimer(int timerId, {required bool repeat}) {
+    if (!_activeTimerIds.contains(timerId) || _runtimeFaulted) return;
+    if (!repeat) {
+      _timers.remove(timerId);
+      _activeTimerIds.remove(timerId);
+    }
+    try {
+      final result = evaluate('__mintFireTimer($timerId)');
+      if (result.isError) {
+        print('[JsEngine] 定时器回调失败: ${result.stringResult}');
+      }
+      _executePendingJob();
+    } catch (e) {
+      print('[JsEngine] 定时器回调异常: $e');
+    }
+  }
+
+  void _markRuntimeFaulted() {
+    if (_runtimeFaulted) return;
+    _runtimeFaulted = true;
+    for (final timer in _timers.values) {
+      timer.cancel();
+    }
+    _timers.clear();
+    _activeTimerIds.clear();
+  }
+
   void dispose() {
+    for (final timer in _timers.values) {
+      timer.cancel();
+    }
+    _timers.clear();
+    _activeTimerIds.clear();
     _runtime?.dispose();
     _runtime = null;
     _initialized = false;
+    _runtimeFaulted = false;
   }
 }
 

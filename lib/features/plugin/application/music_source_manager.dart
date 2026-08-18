@@ -243,6 +243,130 @@ class MusicSourceManager {
     'mg': ['128k', '320k', 'flac', 'flac24bit', 'hires', 'atmos', 'master'],
   };
 
+  /// 插件测试：返回指定插件宿主声明的音源与各源音质列表。
+  ///
+  /// 音源名规范化为内置源 id（如"酷我音乐"→kw），未声明的源沿用插件
+  /// 原名作为 id；插件未声明音质时回退到该源的内置默认音质。
+  List<PluginSourceSpec> getHostSourceSpecs(PluginHost host) {
+    final specs = <PluginSourceSpec>[];
+    final seenIds = <String>{};
+    for (final source in host.sources) {
+      final knownId = _sourceNameToId[source.name];
+      final id = (knownId != null && knownId.isNotEmpty)
+          ? knownId
+          : source.name.trim();
+      if (id.isEmpty || seenIds.contains(id)) continue;
+      seenIds.add(id);
+      final qualities = source.qualities.isNotEmpty
+          ? source.qualities
+          : (_defaultQualities[id] ?? const ['128k', '320k', 'flac']);
+      specs.add(
+        PluginSourceSpec(id: id, name: source.name, qualities: qualities),
+      );
+    }
+    return specs;
+  }
+
+  /// 插件测试：优先通过指定插件宿主搜索。
+  ///
+  /// 与插件启用后的实际播放路径保持一致：插件自己的搜索结果携带完整
+  /// LX 元数据（songmid/hash/songId 等），供后续 musicUrl 解析使用；
+  /// 宿主不支持搜索或无结果时回退常规搜索（插件优先，再内置源）。
+  Future<List<Song>> searchViaHost(
+    PluginHost host,
+    String query, {
+    required String sourceId,
+    int limit = 15,
+  }) async {
+    if (query.isEmpty) return [];
+
+    final effectiveSourceId = _canonicalSourceId(sourceId);
+    final pluginSourceId = _getSourceIdForHost(host, effectiveSourceId);
+    // Some LX sources expose a usable search method but omit `musicSearch`
+    // from their source action metadata. Keep the method-level check as a
+    // compatibility fallback; sources that truly do not support search simply
+    // return an empty result and continue to the normal fallback path.
+    final canTryPluginSearch =
+        pluginSourceId != null &&
+        (host.supportsSearch(pluginSourceId) || host.hasMethod('search'));
+    if (canTryPluginSearch) {
+      try {
+        final resultJson = await host.search(
+          pluginSourceId,
+          query,
+          limit: limit,
+        );
+        if (resultJson != null && resultJson.isNotEmpty) {
+          final results = _parsePluginSearchResult(
+            resultJson,
+            effectiveSourceId,
+          );
+          if (results.isNotEmpty) return results;
+        }
+      } catch (e) {
+        print('[MusicSourceManager] searchViaHost search失败: $e');
+      }
+
+      try {
+        final resultJson = await host.searchWithHandler(
+          pluginSourceId,
+          query,
+          limit: limit,
+        );
+        if (resultJson != null && resultJson.isNotEmpty) {
+          final results = _parsePluginSearchResult(
+            resultJson,
+            effectiveSourceId,
+          );
+          if (results.isNotEmpty) return results;
+        }
+      } catch (e) {
+        print('[MusicSourceManager] searchViaHost searchWithHandler失败: $e');
+      }
+    }
+
+    final builtInResults = await searchBuiltIn(
+      query,
+      sourceId: effectiveSourceId,
+      limit: limit,
+    );
+    if (builtInResults.isNotEmpty) return builtInResults;
+
+    // Unknown/custom sources have no built-in adapter. Give another enabled
+    // host for the same source a chance to provide provider-compatible data.
+    if (!_builtInSources.containsKey(effectiveSourceId)) {
+      return search(query, sourceId: effectiveSourceId, limit: limit);
+    }
+    return const [];
+  }
+
+  /// Search only the built-in adapter for [sourceId].
+  ///
+  /// Resolver-only LX plugins still require provider-specific IDs such as
+  /// `songmid`, `hash`, or `copyrightId`. A result from another provider is not
+  /// interchangeable even when its title and artist match, so plugin tests use
+  /// this path to obtain metadata from the same provider.
+  Future<List<Song>> searchBuiltIn(
+    String query, {
+    required String sourceId,
+    int page = 1,
+    int limit = 15,
+  }) async {
+    if (query.isEmpty) return const [];
+    final effectiveSourceId = _canonicalSourceId(sourceId);
+    final builtIn = _builtInSources[effectiveSourceId];
+    if (builtIn == null) return const [];
+    try {
+      return await builtIn.search(query, page: page, limit: limit);
+    } catch (e) {
+      print(
+        '[MusicSourceManager] built-in direct search failed: '
+        'source=$effectiveSourceId error=$e',
+      );
+      return const [];
+    }
+  }
+
   PluginHost? _findPluginForSource(String sourceId) {
     final hosts = _findPluginHostsForSource(sourceId);
     return hosts.isEmpty ? null : hosts.first;
@@ -679,38 +803,42 @@ class MusicSourceManager {
         } catch (_) {}
       }
 
-      if (decoded is List) {
-        return decoded
-            .whereType<Map<String, dynamic>>()
-            .map((item) => _musicInfoToSong(item, sourceId))
-            .toList();
+      List<dynamic> findItems(dynamic value, int depth) {
+        if (depth > 4 || value == null) return const [];
+        if (value is String) {
+          try {
+            return findItems(jsonDecode(value), depth + 1);
+          } catch (_) {
+            return const [];
+          }
+        }
+        if (value is List) return value;
+        if (value is! Map) return const [];
+
+        // Different LX/CeruMusic adapters wrap the same list under different
+        // names. Read the common envelopes before treating the result as
+        // unsupported. `list` remains first because it is the canonical form.
+        for (final key in const [
+          'list',
+          'songs',
+          'items',
+          'records',
+          'data',
+          'result',
+          'body',
+        ]) {
+          final nested = findItems(value[key], depth + 1);
+          if (nested.isNotEmpty) return nested;
+        }
+        return const [];
       }
 
-      if (decoded is Map<String, dynamic>) {
-        if (decoded.containsKey('list')) {
-          final list = decoded['list'] as List? ?? [];
-          return list
-              .whereType<Map<String, dynamic>>()
-              .map((item) => _musicInfoToSong(item, sourceId))
-              .toList();
-        }
-
-        if (decoded.containsKey('data')) {
-          final data = decoded['data'];
-          if (data is List) {
-            return data
-                .whereType<Map<String, dynamic>>()
-                .map((item) => _musicInfoToSong(item, sourceId))
-                .toList();
-          }
-          if (data is Map && data.containsKey('list')) {
-            final list = data['list'] as List? ?? [];
-            return list
-                .whereType<Map<String, dynamic>>()
-                .map((item) => _musicInfoToSong(item, sourceId))
-                .toList();
-          }
-        }
+      final items = findItems(decoded, 0)
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+      if (items.isNotEmpty) {
+        return items.map((item) => _musicInfoToSong(item, sourceId)).toList();
       }
 
       print('[MusicSourceManager] 无法识别的搜索结果格式: ${decoded.runtimeType}');
@@ -799,17 +927,17 @@ class MusicSourceManager {
       }
     } else if (info['img3'] != null) {
       coverUrl = info['img3'].toString();
-      if (!coverUrl!.startsWith('http')) {
+      if (!coverUrl.startsWith('http')) {
         coverUrl = 'http://d.musicapp.migu.cn$coverUrl';
       }
     } else if (info['img2'] != null) {
       coverUrl = info['img2'].toString();
-      if (!coverUrl!.startsWith('http')) {
+      if (!coverUrl.startsWith('http')) {
         coverUrl = 'http://d.musicapp.migu.cn$coverUrl';
       }
     } else if (info['img1'] != null) {
       coverUrl = info['img1'].toString();
-      if (!coverUrl!.startsWith('http')) {
+      if (!coverUrl.startsWith('http')) {
         coverUrl = 'http://d.musicapp.migu.cn$coverUrl';
       }
     } else if (info['songmid'] != null && sourceId == 'kw') {
@@ -1000,11 +1128,20 @@ class MusicSourceManager {
     return results.map((result) => result.url).toList();
   }
 
+  /// 解析一首歌在指定音质下的播放链接候选（与真实播放完全一致的路径）。
+  ///
+  /// 播放链接由插件解析，其它内置源负责搜索等元数据；唯独 kw 例外：酷我
+  /// 插件会把 VIP/电台歌的无损请求换成 Q0 加密 mflac、或偶发几秒提示音，
+  /// 因此 kw 源优先用内置 KwMusicSource 解析（含提示音/时长过滤、br 链降
+  /// 级、随机账号重试），插件结果随后追加。
+  /// [pluginHosts] 供插件测试传入被测宿主（隔离或共享），缺省时使用当前
+  /// 已启用的插件宿主，保证测试结果与实际播放一致。
   Future<List<PluginMusicUrlResult>> getMusicUrlResultCandidates(
     Song song, {
     String quality = '320k',
     Set<String> excludedUrls = const <String>{},
     bool includeQualityFallbacks = false,
+    List<PluginHost>? pluginHosts,
   }) async {
     final sourceId = song.source;
     if (sourceId == null) return const <PluginMusicUrlResult>[];
@@ -1012,39 +1149,44 @@ class MusicSourceManager {
     final musicInfo = _buildPluginMusicInfo(song, sourceId);
     final results = <PluginMusicUrlResult>[];
 
-    // 酷我源特殊处理：玉宁熙等 LX 插件走 nmobi.kuwo.cn 车机端，对 VIP 歌曲
-    // 会返回“已为您开启免费听歌权限”提示音。内置 kw 源同样走 nmobi 接口，
-    // 但使用随机 user/loginUid 并校验响应时长/码率，可过滤提示音。
-    // 因此 kw 源先尝试内置解析；若内置成功，直接返回内置结果，避免插件
-    // 返回的提示音 URL 进入候选列表触发误播放或自动换源。
-    final preferBuiltIn = sourceId == 'kw';
-    final builtInQualities = includeQualityFallbacks
-        ? _qualityFallbackChain(
-            quality,
-            preferKuwoCompatibleQuality: sourceId == 'kw',
-          )
-        : <String>[quality];
-    if (preferBuiltIn) {
-      for (final candidateQuality in builtInQualities) {
-        await _addBuiltInMusicUrlCandidate(
-          song,
-          quality: candidateQuality,
-          excludedUrls: excludedUrls,
-          results: results,
-        );
-      }
-      if (results.isNotEmpty) {
-        print('[MusicSourceManager] kw 内置源已提供有效 URL，跳过插件解析');
-        return results;
+    // Kuwo 插件解析不可靠：VIP/电台歌的无损请求会被换成带 ekey 的 Q0 加密
+    // mflac（实测 320k/flac/flac24bit/atmos/master 全部如此），且部分请求
+    // 会命中 URL 无特征、实际时长只有几秒的提示音，二者都无法被
+    // _isKuwoPromptUrl 的字符串特征可靠拦截。内置 KwMusicSource 解析器自带
+    // 完整防御（拒 .mflac/.mgg/提示音、时长偏差过滤、随机账号重试、br 链
+    // 自动降级 320k/128k），并且与插件走同一 nmobi 车机接口。因此 kw 源把
+    // 内置解析结果作为【首个候选】，插件结果随后追加——既保证插件测试的
+    // 候选探测、也保证真实播放的“候选.first 优先播放”都能拿到可解码、时长
+    // 完整的链接，而不是先播放坏链接再去换源。
+    if (sourceId == 'kw') {
+      final builtIn = _builtInSources['kw'];
+      if (builtIn is KuwoMusicSource) {
+        try {
+          final builtInUrl = await builtIn.getSongUrlWithQuality(
+            song.id,
+            quality: quality,
+            expectedDurationSeconds: song.duration,
+          );
+          final trimmed = builtInUrl?.trim() ?? '';
+          if (trimmed.isNotEmpty &&
+              !_isKuwoPromptUrl(trimmed) &&
+              _isValidAudioUrl(trimmed) &&
+              !excludedUrls.contains(trimmed)) {
+            results.add(PluginMusicUrlResult(url: trimmed, quality: quality));
+            print('[MusicSourceManager] kw 内置解析优先候选: $trimmed');
+          }
+        } catch (e) {
+          print('[MusicSourceManager] kw 内置解析失败: $e');
+        }
       }
     }
 
-    // Match CeruMusic/LX Music: an enabled LX plugin is the authoritative
-    // resolver because it receives the provider-specific song metadata and
-    // requested quality. The built-in resolver is only a fallback. In
+    // An enabled LX plugin is the authoritative resolver because it receives
+    // the provider-specific song metadata and requested quality. In
     // particular, Kuwo's legacy endpoint can return HTTP 200 for its
     // free-listening permission prompt instead of the requested song.
-    for (final host in _findPluginHostsForSource(sourceId)) {
+    final hosts = pluginHosts ?? _findPluginHostsForSource(sourceId);
+    for (final host in hosts) {
       final pluginSourceId = _getSourceIdForHost(host, sourceId);
       if (pluginSourceId == null) continue;
 
@@ -1093,17 +1235,6 @@ class MusicSourceManager {
       }
     }
 
-    if (!preferBuiltIn) {
-      for (final candidateQuality in builtInQualities) {
-        await _addBuiltInMusicUrlCandidate(
-          song,
-          quality: candidateQuality,
-          excludedUrls: excludedUrls,
-          results: results,
-        );
-      }
-    }
-
     return results;
   }
 
@@ -1125,49 +1256,6 @@ class MusicSourceManager {
           : _getPluginQualities(host, pluginSourceId),
       preferKuwoCompatibleQuality: sourceId == 'kw',
     );
-  }
-
-  Future<void> _addBuiltInMusicUrlCandidate(
-    Song song, {
-    required String quality,
-    required Set<String> excludedUrls,
-    required List<PluginMusicUrlResult> results,
-  }) async {
-    final builtIn = _builtInSources[song.source];
-    if (builtIn == null) return;
-
-    try {
-      // 酷我源使用音质感知的解析接口，支持 128k/320k/flac/hires 等音质，
-      // 避免只回退到 128k。其它源仍走原 getSongUrl。
-      String? url;
-      if (builtIn is KuwoMusicSource) {
-        url = await builtIn.getSongUrlWithQuality(
-          song.id,
-          quality: quality,
-          expectedDurationSeconds: song.duration,
-        );
-      } else {
-        url = await builtIn.getSongUrl(song.id);
-      }
-      if (url != null &&
-          url.isNotEmpty &&
-          _isValidAudioUrl(url) &&
-          !excludedUrls.contains(url) &&
-          !results.any((item) => item.url == url)) {
-        // 内置 kw 源也可能返回提示音，二次校验
-        if (song.source == 'kw' && _isKuwoPromptUrl(url)) {
-          print('[MusicSourceManager] 内置 kw URL 被识别为提示音，丢弃: $url');
-          return;
-        }
-        results.add(PluginMusicUrlResult(url: url, quality: quality));
-        print(
-          '[MusicSourceManager] built-in URL candidate: '
-          'source=${song.source} quality=$quality host=${_urlHost(url)}',
-        );
-      }
-    } catch (e) {
-      print('[MusicSourceManager] built-in URL failed: $e');
-    }
   }
 
   String _urlHost(String url) {
@@ -1766,5 +1854,63 @@ class MusicSourceManager {
     }
 
     return sources;
+  }
+
+  /// 搜索歌单：通过各内置源的 searchPlaylist API 获取真实的歌单搜索结果。
+  ///
+  /// 聚合模式（sourceId == 'all'）会并发请求所有内置源，去重后返回；
+  /// 指定源时只请求对应源。
+  Future<List<Playlist>> searchPlaylists(
+    String query, {
+    String sourceId = 'all',
+    int limit = 30,
+  }) async {
+    if (query.isEmpty) return [];
+
+    final results = <Playlist>[];
+    final seenIds = <String>{};
+
+    void addUnique(Playlist playlist) {
+      if (!seenIds.contains(playlist.id)) {
+        seenIds.add(playlist.id);
+        results.add(playlist);
+      }
+    }
+
+    if (sourceId == 'all') {
+      // 并发搜索所有内置源
+      final futures = _builtInSources.entries.map((entry) async {
+        try {
+          final playlists = await entry.value
+              .searchPlaylists(query, limit: limit)
+              .timeout(_perSourceTimeout);
+          return playlists;
+        } catch (_) {
+          return <Playlist>[];
+        }
+      });
+      final allResults = await Future.wait(futures);
+      for (final sourceResults in allResults) {
+        for (final p in sourceResults) {
+          addUnique(p);
+        }
+      }
+    } else {
+      // 搜索指定源
+      final effectiveSourceId = _canonicalSourceId(sourceId);
+      final builtIn = _builtInSources[effectiveSourceId];
+      if (builtIn != null) {
+        try {
+          final playlists = await builtIn
+              .searchPlaylists(query, limit: limit)
+              .timeout(_perSourceTimeout);
+          for (final p in playlists) {
+            addUnique(p);
+          }
+        } catch (_) {}
+      }
+    }
+
+    return results.take(limit).toList();
   }
 }

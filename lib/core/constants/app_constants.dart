@@ -2,7 +2,7 @@ abstract class AppConstants {
   AppConstants._();
 
   static const String appName = '薄荷音乐';
-  static const String appVersion = '1.0.1';
+  static const String appVersion = '1.0.2';
 
   static const int defaultPageSize = 30;
   static const int maxRetryCount = 3;

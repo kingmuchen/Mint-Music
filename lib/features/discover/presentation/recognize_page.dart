@@ -134,7 +134,7 @@ class _RecognizePageState extends ConsumerState<RecognizePage>
   /// 对标 CeruMusic handleSearchResult(): 搜索识别结果
   void _handleSearchResult(RecognizeResult song) {
     if (song.name.isNotEmpty) {
-      ref.read(searchQueryProvider.notifier).state = song.name;
+      ref.read(pendingSearchQueryProvider.notifier).state = song.name;
       context.push('/search');
     }
   }

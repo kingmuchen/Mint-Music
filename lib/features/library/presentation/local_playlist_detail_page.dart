@@ -17,6 +17,7 @@ import '../application/playlist_providers.dart';
 import '../domain/models/playlist.dart';
 import '../../player/application/playback_controller.dart';
 import '../../player/domain/models/song.dart';
+import '../../player/presentation/mini_player.dart';
 
 enum SongSortMode {
   addedTime,
@@ -132,38 +133,56 @@ class _LocalPlaylistDetailPageState
 
     return Scaffold(
       backgroundColor: colors.background,
-      body: SafeArea(
-        child: playlistsAsync.when(
-          data: (playlists) {
-            final playlist =
-                playlists.where((p) => p.id == widget.playlistId).firstOrNull;
-            if (playlist == null) {
-              return Center(
-                child:
-                    Text('歌单未找到', style: TextStyle(color: colors.textHint)),
-              );
-            }
-            if (_originalSongs.length != playlist.songs.length ||
-                !_listEquals(_originalSongs, playlist.songs)) {
-              _updateSortedSongs(playlist.songs);
-            }
-            return Column(
-              children: [
-                _buildHeader(context, ref, colors, playlist),
-                if (_isCustomSortMode) _buildCustomSortBar(colors),
-                Expanded(
-                  child: _isCustomSortMode
-                      ? _buildReorderableSongList(ref, colors, playlist)
-                      : _buildSongList(context, ref, colors, playlist),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: SafeArea(
+              child: playlistsAsync.when(
+                data: (playlists) {
+                  final playlist = playlists
+                      .where((p) => p.id == widget.playlistId)
+                      .firstOrNull;
+                  if (playlist == null) {
+                    return Center(
+                      child: Text('歌单未找到',
+                          style: TextStyle(color: colors.textHint)),
+                    );
+                  }
+                  if (_originalSongs.length != playlist.songs.length ||
+                      !_listEquals(_originalSongs, playlist.songs)) {
+                    _updateSortedSongs(playlist.songs);
+                  }
+                  return Column(
+                    children: [
+                      _buildHeader(context, ref, colors, playlist),
+                      if (_isCustomSortMode) _buildCustomSortBar(colors),
+                      Expanded(
+                        child: _isCustomSortMode
+                            ? _buildReorderableSongList(ref, colors, playlist)
+                            : _buildSongList(context, ref, colors, playlist),
+                      ),
+                    ],
+                  );
+                },
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (_, __) => Center(
+                  child: Text('加载失败',
+                      style: TextStyle(color: colors.textHint)),
                 ),
-              ],
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => Center(
-            child: Text('加载失败', style: TextStyle(color: colors.textHint)),
+              ),
+            ),
           ),
-        ),
+          // 底部迷你播放器（与搜索页面一致：键盘弹出时隐藏）
+          MediaQuery.of(context).viewInsets.bottom > 0
+              ? const SizedBox.shrink()
+              : Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 20,
+                  child: RepaintBoundary(child: const MiniPlayer()),
+                ),
+        ],
       ),
     );
   }
@@ -638,7 +657,11 @@ class _LocalPlaylistDetailPageState
     }
 
     return ReorderableListView.builder(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
+      // 预留迷你播放器高度（56px + 底部 20px 间距），保证最后一首歌曲
+      // 能滚动到迷你播放器上方而不被遮挡。
+      padding: const EdgeInsets.only(
+        bottom: AppSpacing.miniPlayerHeight + AppSpacing.lg,
+      ),
       itemCount: _sortedSongs.length,
       onReorder: _onCustomReorder,
       proxyDecorator: (child, index, animation) {
@@ -724,7 +747,11 @@ class _LocalPlaylistDetailPageState
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
+      // 预留迷你播放器高度（56px + 底部 20px 间距），保证最后一首歌曲
+      // 能滚动到迷你播放器上方而不被遮挡。
+      padding: const EdgeInsets.only(
+        bottom: AppSpacing.miniPlayerHeight + AppSpacing.lg,
+      ),
       itemCount: _sortedSongs.length,
       addAutomaticKeepAlives: false,
       addRepaintBoundaries: true,

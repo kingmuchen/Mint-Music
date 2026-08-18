@@ -11,6 +11,7 @@ import '../../library/application/playlist_providers.dart';
 import '../../library/domain/models/playlist.dart' as local;
 import '../../player/application/playback_controller.dart';
 import '../../player/domain/models/song.dart';
+import '../../player/presentation/mini_player.dart';
 
 class PlaylistDetailPage extends ConsumerStatefulWidget {
   const PlaylistDetailPage({super.key, required this.playlistId});
@@ -91,27 +92,42 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     return Scaffold(
       backgroundColor: colors.background,
-      body: playlistAsync.when(
-        data: (playlist) {
-          if (playlist == null) {
-            return Center(
-              child: Text('歌单未找到', style: TextStyle(color: colors.textHint)),
-            );
-          }
-          return Column(
-            children: [
-              _buildHeader(context, ref, colors, playlist),
-              if (_isMultiSelectMode) _buildMultiSelectBar(colors, playlist.songs),
-              Expanded(
-                child: _buildSongList(ref, colors, playlist.songs),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: playlistAsync.when(
+              data: (playlist) {
+                if (playlist == null) {
+                  return Center(
+                    child: Text('歌单未找到', style: TextStyle(color: colors.textHint)),
+                  );
+                }
+                return Column(
+                  children: [
+                    _buildHeader(context, ref, colors, playlist),
+                    if (_isMultiSelectMode) _buildMultiSelectBar(colors, playlist.songs),
+                    Expanded(
+                      child: _buildSongList(ref, colors, playlist.songs),
+                    ),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => Center(
+                child: Text('加载失败', style: TextStyle(color: colors.textHint)),
               ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => Center(
-          child: Text('加载失败', style: TextStyle(color: colors.textHint)),
-        ),
+            ),
+          ),
+          // 底部迷你播放器（与搜索页面一致：键盘弹出时隐藏）
+          MediaQuery.of(context).viewInsets.bottom > 0
+              ? const SizedBox.shrink()
+              : Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 20,
+                  child: RepaintBoundary(child: const MiniPlayer()),
+                ),
+        ],
       ),
     );
   }
@@ -316,7 +332,11 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
+      // 预留迷你播放器高度（56px + 底部 20px 间距），保证最后一首歌曲
+      // 能滚动到迷你播放器上方而不被遮挡。
+      padding: const EdgeInsets.only(
+        bottom: AppSpacing.miniPlayerHeight + AppSpacing.lg,
+      ),
       itemCount: songs.length,
       addAutomaticKeepAlives: false,
       addRepaintBoundaries: true,

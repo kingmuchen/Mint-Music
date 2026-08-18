@@ -390,18 +390,43 @@ class KuwoMusicSource implements MusicSourceProvider {
     }
   }
 
+  /// 酷我车机端 source 参数列表，按优先级排序。
+  /// 某些歌曲在特定 source 下会返回 DC data error，多个 source 尝试可以提高成功率。
+  static const _kwSources = [
+    'kwplayercar_ar_6.0.0.9_B_jiakong_vh.apk',
+    'kwplayercar_ar_6.0.1.0_apk_keluze.apk',
+  ];
+
   /// 调用酷我 `nmobi.kuwo.cn/mobi.s` 车机端接口获取播放地址。
   ///
   /// 参数 `source` 使用玉宁熙等 LX 插件常用的车机包名，可有效绕过 VIP 限制。
+  /// 会尝试多个 source 参数以提高成功率。
   Future<_NmobiResult?> _getNmobiUrl(String cleanId, String br) async {
+    // 遍历所有可能的 source 参数
+    for (final source in _kwSources) {
+      final result = await _getNmobiUrlWithSource(cleanId, br, source);
+      if (result != null) {
+        return result;
+      }
+    }
+    // 如果所有 source 都失败，尝试备用 API
+    return await _getPlayUrlFallback(cleanId);
+  }
+
+  /// 使用指定 source 参数调用 nmobi 接口
+  Future<_NmobiResult?> _getNmobiUrlWithSource(
+    String cleanId,
+    String br,
+    String source,
+  ) async {
     final user = (100000000 + _random.nextInt(900000000)).toString();
     // Dart Random.nextInt 要求 max <= 2^32，避免 RangeError。
     // loginUid 取 [1_000_000_000, 4_294_967_295] 即可覆盖常见账号范围。
     final loginUid = (1000000000 + _random.nextInt(4294967296 - 1000000000))
         .toString();
     final url =
-        'https://nmobi.kuwo.cn/mobi.s?f=web&source=kwplayercar_ar_6.0.0.9_B_jiakong_vh.apk&type=convert_url_with_sign&rid=$cleanId&br=$br&user=$user&loginUid=$loginUid';
-    print('[KwMusicSource] _getNmobiUrl try: $url');
+        'https://nmobi.kuwo.cn/mobi.s?f=web&source=$source&type=convert_url_with_sign&rid=$cleanId&br=$br&user=$user&loginUid=$loginUid';
+    print('[KwMusicSource] _getNmobiUrl try source=$source: $url');
     final response = await _apiService.get(
       url,
       headers: {
@@ -432,9 +457,15 @@ class KuwoMusicSource implements MusicSourceProvider {
       }
     }
 
-    if (nested == null) return null;
+    if (nested == null) {
+      print('[KwMusicSource] _getNmobiUrl source=$source returned null data');
+      return null;
+    }
     final raw = nested['url']?.toString();
-    if (raw == null || !raw.trim().startsWith('http')) return null;
+    if (raw == null || !raw.trim().startsWith('http')) {
+      print('[KwMusicSource] _getNmobiUrl source=$source returned invalid url: $raw');
+      return null;
+    }
 
     return _NmobiResult(
       url: raw.trim(),
@@ -443,6 +474,64 @@ class KuwoMusicSource implements MusicSourceProvider {
       type: (nested['type'] as num?)?.toInt() ?? 0,
       format: nested['format']?.toString() ?? '',
     );
+  }
+
+  /// 备用 API：当 nmobi 接口全部失败时尝试
+  /// 使用 www.kuwo.cn 的 playUrl API（需要先获取 csrf token）
+  Future<_NmobiResult?> _getPlayUrlFallback(String cleanId) async {
+    print('[KwMusicSource] Trying playUrl fallback API...');
+    try {
+      // 首先获取 csrf token
+      final tokenUrl = 'https://www.kuwo.cn/';
+      final tokenResponse = await _apiService.get(
+        tokenUrl,
+        headers: {
+          'User-Agent':
+              'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+        },
+      );
+
+      // 从 cookie 中提取 kw_token
+      String? csrfToken;
+      final cookies = tokenResponse.headers['set-cookie']?.join('; ') ?? '';
+      final tokenMatch = RegExp(r'kw_token=([^;]+)').firstMatch(cookies);
+      if (tokenMatch != null) {
+        csrfToken = tokenMatch.group(1);
+      }
+      print('[KwMusicSource] playUrl fallback: got csrf token: $csrfToken');
+
+      // 使用 token 调用 playUrl API
+      final playUrl =
+          'https://www.kuwo.cn/api/v1/www/music/playUrl?mid=$cleanId&type=music&httpsStatus=1';
+      final playUrlResponse = await _apiService.get(
+        playUrl,
+        headers: {
+          'Referer': 'http://www.kuwo.cn/',
+          'csrf': csrfToken ?? '',
+          'User-Agent':
+              'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+        },
+      );
+
+      final data = playUrlResponse.data;
+      if (data is Map) {
+        final url = data['data']?['url']?.toString();
+        if (url != null && url.startsWith('http')) {
+          print('[KwMusicSource] playUrl fallback success: $url');
+          return _NmobiResult(
+            url: url,
+            duration: 0,
+            bitrate: 320,
+            type: 0,
+            format: 'mp3',
+          );
+        }
+      }
+      print('[KwMusicSource] playUrl fallback returned null');
+    } catch (e) {
+      print('[KwMusicSource] playUrl fallback error: $e');
+    }
+    return null;
   }
 
   static final Random _random = Random();
@@ -1371,6 +1460,66 @@ class KuwoMusicSource implements MusicSourceProvider {
     } catch (e) {
       print('[KuwoMusicSource] 热门搜索请求失败: $e');
       return [];
+    }
+  }
+
+  @override
+  Future<List<Playlist>> searchPlaylists(
+    String query, {
+    int page = 1,
+    int limit = 30,
+  }) async {
+    if (query.isEmpty) return [];
+    try {
+      // 使用 Mio-Music 一致的歌单搜索 API
+      final url =
+          'http://search.kuwo.cn/r.s?all=${Uri.encodeQueryComponent(query)}&pn=${page - 1}&rn=$limit&rformat=json&encoding=utf8&ver=mbox&vipver=MUSIC_8.7.7.0_BCS37&plat=pc&devid=28156413&ft=playlist&pay=0&needliveshow=0';
+      final response = await _apiService.get(url);
+      dynamic data = response.data;
+      if (data is String) {
+        data = _parseKuwoResponse(data);
+      }
+      if (data == null || data is! Map) return [];
+
+      final absList = data['abslist'] as List? ?? [];
+
+      final playlists = <Playlist>[];
+      for (final item in absList) {
+        if (item is! Map) continue;
+        final playlistId = item['playlistid']?.toString() ?? '';
+        if (playlistId.isEmpty) continue;
+        playlists.add(
+          Playlist(
+            id: 'kw_$playlistId',
+            title: _decodeName(item['name']?.toString() ?? ''),
+            description: _decodeName(item['intro']?.toString() ?? ''),
+            coverUrl: (item['pic'] ?? item['img'])?.toString() ?? '',
+            songCount: int.tryParse(item['songnum']?.toString() ?? '0') ?? 0,
+            playCount: item['playcnt']?.toString(),
+            author: _decodeName(item['nickname']?.toString() ?? ''),
+            source: 'kw',
+          ),
+        );
+      }
+      return playlists;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// 解析酷我 API 返回的响应，兼容单引号 JSON
+  static dynamic _parseKuwoResponse(String text) {
+    // 尝试标准 JSON 解析
+    try {
+      return jsonDecode(text);
+    } catch (_) {
+      // 酷我 API 可能返回单引号格式的 JSON，替换为双引号
+      final jsonStr = text.replaceAll("'", '"');
+      try {
+        return jsonDecode(jsonStr);
+      } catch (_) {
+        return null;
+      }
     }
   }
 

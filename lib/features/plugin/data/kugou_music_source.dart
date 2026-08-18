@@ -1215,6 +1215,49 @@ class KugouMusicSource implements MusicSourceProvider {
   }
 
   @override
+  Future<List<Playlist>> searchPlaylists(
+    String query, {
+    int page = 1,
+    int limit = 30,
+  }) async {
+    if (query.isEmpty) return [];
+    try {
+      // 使用 Mio-Music 一致的歌单搜索 API（msearchretry + showtype=10）
+      final url =
+          'http://msearchretry.kugou.com/api/v3/search/special?keyword=${Uri.encodeQueryComponent(query)}&page=$page&pagesize=$limit&showtype=10&filter=0&version=7910&sver=2';
+      final response = await _apiService.get(url);
+      dynamic data = response.data;
+      if (data == null) return [];
+
+      // 酷狗 API 可能返回原始 JSON 字符串（Content-Type 非 application/json）
+      if (data is String) {
+        data = _decodeKugouJson(data);
+      }
+      if (data == null || data is! Map) return [];
+
+      final info = data['data']?['info'] as List? ?? [];
+      return info.map((item) {
+        final specialId = item['specialid'] ?? '';
+        return Playlist(
+          id: 'kg_$specialId',
+          title: _decodeName(item['specialname']?.toString() ?? ''),
+          description: _decodeName(item['intro']?.toString() ?? ''),
+          coverUrl: _normalizeKugouImage(
+            item['imgurl']?.toString(),
+            '400',
+          ),
+          songCount: int.tryParse(item['songcount']?.toString() ?? '0') ?? 0,
+          playCount: item['playcount']?.toString(),
+          author: _decodeName(item['nickname']?.toString() ?? ''),
+          source: 'kg',
+        );
+      }).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
   Future<List<String>> getSearchSuggestions(String query) async {
     if (query.isEmpty) return [];
     try {

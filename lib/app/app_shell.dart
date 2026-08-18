@@ -7,6 +7,8 @@ import '../../features/player/presentation/mini_player.dart';
 import '../../features/player/application/playback_controller.dart';
 import '../../features/player/domain/services/cover_color_extractor.dart';
 import '../../features/download/application/download_providers.dart';
+import '../../features/settings/application/update_providers.dart';
+import '../../features/settings/presentation/update_dialog.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -24,6 +26,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(playbackControllerProvider.notifier).onMessage =
           _showPlaybackMessage;
+    });
+    // 启动时自动检查更新（需开启「启动时检查更新」开关）
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final info = await runStartupUpdateCheck(ref);
+      if (info != null && mounted) {
+        await showUpdateDialog(context, info);
+      }
     });
   }
 

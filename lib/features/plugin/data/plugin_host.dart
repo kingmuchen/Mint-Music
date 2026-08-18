@@ -14,24 +14,71 @@ class PluginHost {
   PluginHost(this._engine);
 
   bool get isLoaded => _loaded;
+  bool get isRuntimeHealthy => _engine.isRuntimeHealthy;
   PluginMetadata? get pluginInfo => _pluginInfo;
   List<PluginSourceInfo> get sources => _sources;
   Map<String, List<String>> get sourceActions => _sourceActions;
 
-  Future<void> loadPlugin(String pluginCode) async {
-    if (!_apiInjected) {
-      final apiCode = _engine.injectCeruMusicApi();
-      _engine.evaluate(apiCode);
-      _apiInjected = true;
-    }
-
+  Future<void> loadPlugin(
+    String pluginCode, {
+    String? originalPluginCode,
+  }) async {
     try {
+      if (!_apiInjected) {
+        final apiEvalResult = _engine.injectCeruMusicApi();
+        if (apiEvalResult.isError) {
+          throw Exception('引擎 API 注入失败: ${apiEvalResult.stringResult}');
+        }
+        _apiInjected = true;
+      }
       print('[PluginHost] 开始加载插件...');
       _engine.evaluate('var module = { exports: {} };');
       _engine.evaluate('var exports = module.exports;');
 
       print('[PluginHost] 执行插件代码...');
-      _engine.evaluate(pluginCode);
+      // Force an undefined completion value. This prevents flutter_js from
+      // recursively converting a large module.exports object through FFI.
+      final pluginEvalResult = _engine.evaluate('$pluginCode\n;void 0;');
+      if (pluginEvalResult.isError) {
+        // 例如大型插件超出 JS 栈上限时 QuickJS 返回
+        // "InternalError: stack overflow"。此处直接暴露真实原因，
+        // 而不是让后续 exports 解析失败产生误导性的提示。
+        throw Exception('插件代码执行失败: ${pluginEvalResult.stringResult}');
+      }
+
+      if (originalPluginCode != null && originalPluginCode.trim().isNotEmpty) {
+        print('[PluginHost] 单独执行原始 LX 脚本...');
+        // The LX adapter has already installed its globals and event bridge.
+        // Use a block scope so top-level `const` declarations in an LX script
+        // (for example `const { EVENT_NAMES } = globalThis.lx`) cannot collide
+        // with adapter globals. This is still a direct evaluate: the source is
+        // not embedded in a string passed to new Function.
+        final originalEvalResult = _engine.evaluate(
+          '{\n$originalPluginCode\n}\n;void 0;',
+        );
+        if (originalEvalResult.isError) {
+          throw Exception('原始 LX 插件执行失败: ${originalEvalResult.stringResult}');
+        }
+        // Keep the mobile LX contract intact without putting the large source
+        // back into the adapter or a nested Function constructor. The result
+        // is forced to a boolean so flutter_js never converts the source back
+        // through the Dart bridge.
+        final scriptInfoResult = _engine.evaluate(
+          'if (typeof mockLx !== "undefined" && mockLx.currentScriptInfo) {'
+          ' mockLx.currentScriptInfo.rawScript = ${jsonEncode(originalPluginCode)};'
+          ' true; } else { false; }',
+        );
+        if (scriptInfoResult.isError) {
+          throw Exception('LX 运行时信息初始化失败: ${scriptInfoResult.stringResult}');
+        }
+        final finalizeResult = _engine.evaluate(
+          'typeof __lxFinalizePluginInitialization === "function"'
+          ' ? (__lxFinalizePluginInitialization(), true) : true',
+        );
+        if (finalizeResult.isError) {
+          throw Exception('LX 插件初始化失败: ${finalizeResult.stringResult}');
+        }
+      }
 
       // Older converted LX files kept a usable handler but left a late,
       // non-critical init error set. Normalize that runtime state so already
@@ -64,7 +111,16 @@ class PluginHost {
       print('[PluginHost] 插件初始化完成，解析到 $sourceCount 个源');
 
       print('[PluginHost] 获取插件导出...');
-      final exportsResult = _engine.evaluate('JSON.stringify(module.exports)');
+      final exportsResult = _engine.evaluate('''
+JSON.stringify((function() {
+  var value = module.exports || {};
+  return {
+    pluginInfo: value.pluginInfo,
+    sources: value.sources,
+    sourceActions: value.sourceActions
+  };
+})())
+''');
       if (exportsResult.isError) {
         throw Exception(
           'Plugin code execution failed: ${exportsResult.stringResult}',
@@ -120,15 +176,32 @@ class PluginHost {
       }
     } catch (e) {
       _loaded = false;
+      final message = _friendlyPluginError(e);
       print('[PluginHost] 插件加载失败: $e');
       _pluginInfo = PluginMetadata(
         name: '加载失败',
         version: '0.0',
         author: '',
-        description: '错误: $e',
+        description: message,
       );
-      throw Exception('Failed to load plugin: $e');
+      throw Exception(message);
     }
+  }
+
+  /// 把底层 JS/Dart 异常转成用户可读的失败原因。
+  ///
+  /// 大型混淆插件（如“全音质”赞助版洛雪脚本）体积大、递归深，加载时可能
+  /// 触发 JS 引擎或 Dart 桥接层的栈溢出。这类错误直接抛给 UI 只会显示
+  /// 一句晦涩的 "Stack Overflow"，这里统一翻译成可执行的提示。
+  static String _friendlyPluginError(Object error) {
+    final text = error.toString();
+    if (text.contains('stack overflow') || text.contains('Stack Overflow')) {
+      return '插件脚本过大或递归过深，JS 引擎栈溢出，请更换精简版插件';
+    }
+    if (text.startsWith('Exception: ')) {
+      return text.substring('Exception: '.length);
+    }
+    return text;
   }
 
   String _getSourceDisplayName(String sourceId) {
@@ -200,17 +273,24 @@ class PluginHost {
   Future<String> getMusicUrl(
     String source,
     MusicInfoForPlugin musicInfo,
-    String quality,
-  ) async {
-    final result = await getMusicUrlResult(source, musicInfo, quality);
+    String quality, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    final result = await getMusicUrlResult(
+      source,
+      musicInfo,
+      quality,
+      timeout: timeout,
+    );
     return result.url;
   }
 
   Future<PluginMusicUrlResult> getMusicUrlResult(
     String source,
     MusicInfoForPlugin musicInfo,
-    String quality,
-  ) async {
+    String quality, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     _ensureLoaded();
 
     final infoJson = jsonEncode(musicInfo.toJson());
@@ -218,6 +298,7 @@ class PluginHost {
 
     final result = await _engine.callPluginMethod(
       "module.exports.musicUrl('$source', JSON.parse('$escapedInfo'), '$quality')",
+      timeout: timeout,
     );
 
     if (result == null || result.isEmpty) {
@@ -798,6 +879,10 @@ class PluginHost {
   void _ensureLoaded() {
     if (!_loaded) {
       throw StateError('Plugin not loaded');
+    }
+    if (!_engine.isRuntimeHealthy) {
+      _loaded = false;
+      throw StateError('插件 JS 运行时已隔离，请重新加载插件');
     }
   }
 

@@ -8,11 +8,15 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../application/settings_providers.dart';
 import '../application/plugin_providers.dart';
+import '../application/update_providers.dart';
 import '../data/settings_service.dart';
+import '../data/update_service.dart';
+import 'update_dialog.dart';
 import '../../player/presentation/widgets/amll_lyric_player.dart';
 
 const _settingsSheetAnimationStyle = AnimationStyle(
@@ -93,6 +97,16 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   SettingsCategory _activeCategory = SettingsCategory.appearance;
 
+  /// 记录上一次的分类，用于判断切换方向
+  SettingsCategory _previousCategory = SettingsCategory.appearance;
+
+  /// 水平滚动控制器：用于点击标签时将选中项自动居中
+  final ScrollController _tabScrollController = ScrollController();
+
+  /// 每个标签按钮的 GlobalKey，用于测量位置
+  final List<GlobalKey> _tabKeys =
+      List.generate(SettingsCategory.values.length, (_) => GlobalKey());
+
   static const _categoryConfig = {
     SettingsCategory.appearance: (icon: Icons.palette, label: '外观设置'),
     SettingsCategory.playback: (icon: Icons.play_circle, label: '播放设置'),
@@ -101,6 +115,49 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     SettingsCategory.storage: (icon: Icons.storage, label: '存储管理'),
     SettingsCategory.about: (icon: Icons.info, label: '关于'),
   };
+
+  @override
+  void dispose() {
+    _tabScrollController.dispose();
+    super.dispose();
+  }
+
+  /// 点击标签后，将选中项平滑滚动到可视区域中央
+  void _scrollToActiveTab() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_tabScrollController.hasClients) return;
+
+      final index = SettingsCategory.values.indexOf(_activeCategory);
+      if (index < 0 || index >= _tabKeys.length) return;
+
+      final key = _tabKeys[index];
+      final context = key.currentContext;
+      if (context == null) return;
+
+      // 获取标签按钮的位置信息
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null) return;
+
+      final buttonCenter = box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
+      final viewportWidth =
+          _tabScrollController.position.viewportDimension;
+      final currentScroll = _tabScrollController.offset;
+
+      // 计算需要滚动的距离，使按钮居中
+      final targetOffset =
+          currentScroll + buttonCenter - viewportWidth / 2;
+      final clampedOffset = targetOffset.clamp(
+        _tabScrollController.position.minScrollExtent,
+        _tabScrollController.position.maxScrollExtent,
+      );
+
+      _tabScrollController.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,62 +199,83 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildCategoryTabs(ThemeColors colors) {
-    return Container(
+    return SizedBox(
       height: 48,
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: SettingsCategory.values.map((cat) {
-          final config = _categoryConfig[cat]!;
-          final isActive = _activeCategory == cat;
-          return Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.sm),
-            child: Material(
-              color: isActive ? colors.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => setState(() => _activeCategory = cat),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
+      child: Stack(
+        children: [
+          // 标签列表（可横向滚动）
+          ListView(
+            controller: _tabScrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            children: SettingsCategory.values.asMap().entries.map((entry) {
+              final index = entry.key;
+              final cat = entry.value;
+              final config = _categoryConfig[cat]!;
+              final isActive = _activeCategory == cat;
+              return Padding(
+                key: _tabKeys[index],
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
+                child: Material(
+                  color: isActive ? colors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isActive ? colors.primary : colors.divider,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        config.icon,
-                        size: 16,
-                        color: isActive ? Colors.white : colors.textSecondary,
+                    onTap: () {
+                      setState(() {
+                        _previousCategory = _activeCategory;
+                        _activeCategory = cat;
+                      });
+                      _scrollToActiveTab();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        config.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isActive
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                          color: isActive ? Colors.white : colors.textSecondary,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isActive ? colors.primary : colors.divider,
                         ),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            config.icon,
+                            size: 16,
+                            color: isActive
+                                ? Colors.white
+                                : colors.textSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            config.label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isActive
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color: isActive
+                                  ? Colors.white
+                                  : colors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
+          ),
+
+        ],
       ),
     );
   }
+
 
   Widget _buildContent(ThemeColors colors) {
     return SingleChildScrollView(
@@ -208,7 +286,39 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         AppSpacing.xxxl,
       ),
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) {
+          // 判断切换方向：新页面从右向左滑入，旧页面从左向右滑出
+          final currentIndex =
+              SettingsCategory.values.indexOf(_activeCategory);
+          final previousIndex =
+              SettingsCategory.values.indexOf(_previousCategory);
+          final isForward = currentIndex >= previousIndex;
+
+          // 淡入淡出 + 水平滑动
+          final fadeTransition = FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+            ),
+            child: child,
+          );
+
+          final slideTransition = SlideTransition(
+            position: Tween<Offset>(
+              begin: Offset(isForward ? 0.15 : -0.15, 0.0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+            )),
+            child: fadeTransition,
+          );
+
+          return slideTransition;
+        },
         child: KeyedSubtree(
           key: ValueKey(_activeCategory),
           child: _buildCategoryContent(),
@@ -1817,9 +1927,13 @@ class _MusicSourceContent extends ConsumerWidget {
     final musicSource = ref.watch(musicSourceProvider);
     final sourceQuality = ref.watch(sourceQualityProvider);
     final globalQuality = ref.watch(globalQualityProvider);
+    // 与全屏播放页保持一致：音质列表动态取插件声明的音质，插件未声明时回退内置默认
+    final musicSourceManager = ref.watch(musicSourceManagerProvider);
     final allSources = ['网易云', 'QQ音乐', '酷狗', '酷我', '咪咕'];
     final currentQuality = sourceQuality[musicSource] ?? '320k';
-    final supportedQualities = getSupportedQualitiesForSource(musicSource);
+    final supportedQualities = musicSourceManager.getSupportedQualitiesForSourceId(
+      kSourceNameToId[musicSource] ?? 'wy',
+    );
     final qualityDisplayNames = supportedQualities
         .map((q) => getQualityDisplayName(q))
         .toList();
@@ -1926,7 +2040,11 @@ class _MusicSourceContent extends ConsumerWidget {
               onTap: () {
                 final allQualityIds = <String>{};
                 for (final src in allSources) {
-                  allQualityIds.addAll(getSupportedQualitiesForSource(src));
+                  allQualityIds.addAll(
+                    musicSourceManager.getSupportedQualitiesForSourceId(
+                      kSourceNameToId[src] ?? 'wy',
+                    ),
+                  );
                 }
                 final sortedIds = allQualityIds.toList();
                 final sortedNames = sortedIds
@@ -1965,7 +2083,10 @@ class _MusicSourceContent extends ConsumerWidget {
                   final container = ProviderScope.containerOf(context);
                   final updated = <String, String>{};
                   for (final src in allSources) {
-                    final supported = getSupportedQualitiesForSource(src);
+                    final supported = musicSourceManager
+                        .getSupportedQualitiesForSourceId(
+                          kSourceNameToId[src] ?? 'wy',
+                        );
                     if (supported.contains(globalQuality)) {
                       updated[src] = globalQuality;
                     } else {
@@ -2813,11 +2934,18 @@ class _StorageContent extends ConsumerWidget {
 
 // ==================== About ====================
 
-class _AboutContent extends ConsumerWidget {
+class _AboutContent extends ConsumerStatefulWidget {
   const _AboutContent();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AboutContent> createState() => _AboutContentState();
+}
+
+class _AboutContentState extends ConsumerState<_AboutContent> {
+  bool _checkingUpdate = false;
+
+  @override
+  Widget build(BuildContext context) {
     final colors = ref.watch(themeColorsProvider);
     final versionAsync = ref.watch(appVersionProvider);
     final autoUpdate = ref.watch(autoUpdateProvider);
@@ -2831,6 +2959,37 @@ class _AboutContent extends ConsumerWidget {
         _buildContactGroup(context, colors),
       ],
     );
+  }
+
+  /// 手动检查更新：拉取 GitHub 最新 release，有新版弹窗提示，否则提示已最新。
+  Future<void> _checkForUpdate(BuildContext context) async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    final service = ref.read(updateServiceProvider);
+    final info = await service.fetchLatestRelease();
+    if (!context.mounted) return;
+    setState(() => _checkingUpdate = false);
+    final colors = ref.read(themeColorsProvider);
+
+    if (info == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('检查更新失败，请稍后重试'),
+          backgroundColor: colors.error,
+        ),
+      );
+      return;
+    }
+    if (!UpdateService.isNewerVersion(info.version, AppConstants.appVersion)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('已是最新版本'),
+          backgroundColor: colors.primary,
+        ),
+      );
+      return;
+    }
+    await showUpdateDialog(context, info);
   }
 
   Widget _buildAppHeader(
@@ -2992,14 +3151,15 @@ class _AboutContent extends ConsumerWidget {
           icon: Icons.refresh,
           title: '检查更新',
           subtitle: '手动检查是否有新版本',
-          trailing: Icon(Icons.chevron_right, size: 18, color: colors.textHint),
+          trailing: _checkingUpdate
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.chevron_right, size: 18, color: colors.textHint),
           colors: colors,
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('正在检查更新...'),
-              backgroundColor: colors.primary,
-            ),
-          ),
+          onTap: _checkingUpdate ? null : () => _checkForUpdate(context),
         ),
       ],
     );

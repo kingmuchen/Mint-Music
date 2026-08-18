@@ -14,6 +14,22 @@ class PluginSourceInfo {
   }
 }
 
+/// 插件测试用：插件宿主声明的一个音源。
+///
+/// [id] 为规范化后的音源标识（内置五源映射为 wy/kg/kw/tx/mg，
+/// 其余音源沿用插件声明名），供搜索与链接解析使用。
+class PluginSourceSpec {
+  final String id;
+  final String name;
+  final List<String> qualities;
+
+  const PluginSourceSpec({
+    required this.id,
+    required this.name,
+    required this.qualities,
+  });
+}
+
 class PluginMetadata {
   final String name;
   final String version;

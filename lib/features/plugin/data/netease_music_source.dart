@@ -1021,6 +1021,60 @@ class NeteaseMusicSource implements MusicSourceProvider {
   }
 
   @override
+  Future<List<Playlist>> searchPlaylists(
+    String query, {
+    int page = 1,
+    int limit = 30,
+  }) async {
+    if (query.isEmpty) return [];
+    try {
+      final offset = limit * (page - 1);
+
+      final data = await _request(
+        '/search',
+        proxyParams: {
+          'keywords': query,
+          'type': '1000',
+          'limit': '$limit',
+          'offset': '$offset',
+        },
+        direct: _DirectApiConfig(_ApiType.eapi, '/api/search/song/list/page', {
+          'keyword': query,
+          'type': '1000',
+          'limit': limit,
+          'offset': offset,
+          'total': true,
+        }),
+      );
+
+      if (data == null || data['code'] != 200) return [];
+
+      final result = data['result'];
+      if (result == null) return [];
+
+      // 网易云搜索 API type=1000 返回歌单搜索结果
+      // 代理接口: result.playlists, 直连: result.playlists
+      final playlists = result['playlists'] as List? ?? [];
+      if (playlists.isEmpty) return [];
+
+      return playlists.map((pl) {
+        return Playlist(
+          id: 'wy_${pl['id']}',
+          title: pl['name']?.toString() ?? '',
+          description: pl['description']?.toString() ?? '',
+          coverUrl: _normalizeCoverUrl(pl['coverImgUrl']),
+          songCount: pl['trackCount'] ?? 0,
+          playCount: _formatPlayCount(pl['playCount']),
+          author: pl['creator']?['nickname']?.toString(),
+          source: 'wy',
+        );
+      }).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
   Future<List<String>> getSearchSuggestions(String query) async {
     if (query.isEmpty) return [];
 

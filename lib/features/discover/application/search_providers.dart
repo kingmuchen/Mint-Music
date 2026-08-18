@@ -2,15 +2,27 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../player/domain/models/song.dart';
+import '../../discover/domain/models/playlist.dart';
 import '../../plugin/application/plugin_providers.dart';
 import '../../plugin/application/music_source_manager.dart';
 import '../../plugin/domain/plugin_types.dart';
 
+/// 搜索页结果类型切换标签。
+enum SearchTab { songs, playlists }
+
 final searchQueryProvider = StateProvider<String>((ref) => '');
+
+/// 仅用于“本次进入搜索页前明确约定要带上的关键词”（如识别页跳转搜索）。
+/// 搜索页进入时会消费并清空它；普通进入一律不恢复上次会话留下的关键词，
+/// 避免退出后再次打开时搜索栏残留上一次搜索。
+final pendingSearchQueryProvider = StateProvider<String?>((ref) => null);
 
 final searchSourceIdProvider = StateProvider<String>((ref) => 'all');
 
 final searchPageProvider = StateProvider<int>((ref) => 1);
+
+/// 当前搜索结果标签页（歌曲 / 歌单）。
+final searchTabProvider = StateProvider<SearchTab>((ref) => SearchTab.songs);
 
 final searchSuggestInputProvider = StateProvider<String>((ref) => '');
 
@@ -436,3 +448,86 @@ final allAvailableSourcesProvider = Provider<List<SourceInfo>>((ref) {
 
   return allSources;
 });
+
+/// 歌单搜索结果状态。
+class PlaylistSearchState {
+  final String query;
+  final List<Playlist> playlists;
+  final bool isLoading;
+  final String? error;
+
+  const PlaylistSearchState({
+    this.query = '',
+    this.playlists = const [],
+    this.isLoading = false,
+    this.error,
+  });
+
+  PlaylistSearchState copyWith({
+    String? query,
+    List<Playlist>? playlists,
+    bool? isLoading,
+    String? error,
+    bool clearError = false,
+  }) {
+    return PlaylistSearchState(
+      query: query ?? this.query,
+      playlists: playlists ?? this.playlists,
+      isLoading: isLoading ?? this.isLoading,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
+class PlaylistSearchNotifier extends StateNotifier<PlaylistSearchState> {
+  PlaylistSearchNotifier(this._manager) : super(const PlaylistSearchState());
+
+  final MusicSourceManager _manager;
+  int _requestId = 0;
+
+  Future<void> search(String query, String sourceId) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) {
+      reset();
+      return;
+    }
+
+    final requestId = ++_requestId;
+    state = PlaylistSearchState(
+      query: normalizedQuery,
+      isLoading: true,
+    );
+
+    try {
+      final playlists = await _manager.searchPlaylists(
+        normalizedQuery,
+        sourceId: sourceId,
+      );
+      if (requestId == _requestId) {
+        state = PlaylistSearchState(
+          query: normalizedQuery,
+          playlists: playlists,
+          isLoading: false,
+        );
+      }
+    } catch (e) {
+      if (requestId == _requestId) {
+        state = PlaylistSearchState(
+          query: normalizedQuery,
+          isLoading: false,
+          error: e.toString(),
+        );
+      }
+    }
+  }
+
+  void reset() {
+    _requestId++;
+    state = const PlaylistSearchState();
+  }
+}
+
+final playlistSearchControllerProvider =
+    StateNotifierProvider<PlaylistSearchNotifier, PlaylistSearchState>((ref) {
+      return PlaylistSearchNotifier(ref.watch(musicSourceManagerProvider));
+    });

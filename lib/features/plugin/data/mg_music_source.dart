@@ -767,6 +767,61 @@ class MiguMusicSource implements MusicSourceProvider {
   }
 
   @override
+  Future<List<Playlist>> searchPlaylists(
+    String query, {
+    int page = 1,
+    int limit = 30,
+  }) async {
+    if (query.isEmpty) return [];
+    try {
+      // 使用 Mio-Music 一致的歌单搜索 API（app.u.nf.migu.cn）
+      final url =
+          'https://app.u.nf.migu.cn/pc/v1.0/content/search_all.do?text=${Uri.encodeQueryComponent(query)}&pageNo=$page&pageSize=$limit&searchSwitch=%7B%22songlist%22%3A1%7D';
+      final response = await _apiService.get(
+        url,
+        headers: {
+          'User-Agent': 'iOS@17.5.1(iPhone16,2)',
+          'Referer': 'https://m.music.migu.cn/',
+        },
+      );
+      dynamic data = response.data;
+      if (data == null) return [];
+
+      // 咪咕 API 可能返回原始 JSON 字符串
+      if (data is String) {
+        try {
+          data = jsonDecode(data);
+        } catch (_) {
+          return [];
+        }
+      }
+      if (data is! Map) return [];
+
+      final code = data['code']?.toString() ?? '';
+      if (code != '000000') return [];
+
+      final songListData = data['songListResultData'] as Map? ?? {};
+      final resultList = songListData['result'] as List? ?? [];
+
+      return resultList.map((item) {
+        final musicNum = item['musicNum'];
+        return Playlist(
+          id: 'mg_${item['id']}',
+          title: item['name']?.toString() ?? '',
+          description: '',
+          coverUrl: item['musicListPicUrl']?.toString(),
+          songCount: int.tryParse(musicNum?.toString() ?? '0') ?? 0,
+          playCount: item['playNum']?.toString(),
+          author: '',
+          source: 'mg',
+        );
+      }).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
   Future<List<String>> getSearchSuggestions(String query) async {
     if (query.isEmpty) return [];
     try {

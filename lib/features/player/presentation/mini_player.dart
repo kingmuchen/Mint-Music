@@ -26,97 +26,103 @@ class MiniPlayer extends ConsumerWidget {
     final controller = ref.read(playbackControllerProvider.notifier);
     if (song == null) return const SizedBox.shrink();
 
-    return GestureDetector(
-      onTap: () => context.push('/player/full'),
-      child: Container(
-        height: 56,
-        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: colors.shadow,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: AppSpacing.xs),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(color: colors.surfaceVariant),
-                child: _buildCover(colors, song),
+    // 迷你播放器是固定 56px 的紧凑布局，系统大字体/大显示设置会把两行
+    // 文字撑高导致 RenderFlex 溢出（底部出现红/黄条纹与红色报错）。
+    // 限制文本缩放上限，保证任意字体设置下布局都不会被撑破。
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.2,
+      child: GestureDetector(
+        onTap: () => context.push('/player/full'),
+        child: Container(
+          height: 56,
+          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    song.title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: colors.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    song.artist,
-                    style: TextStyle(fontSize: 11, color: colors.textHint),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+            ],
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: AppSpacing.xs),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(color: colors.surfaceVariant),
+                  child: _buildCover(colors, song),
+                ),
               ),
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.skip_previous,
-                size: 20,
-                color: colors.textSecondary,
-              ),
-              onPressed: () => controller.previous(),
-            ),
-            IconButton(
-              icon: isLoading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      song.title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                         color: colors.textPrimary,
                       ),
-                    )
-                  : Icon(
-                      isPlaying ? Icons.pause : Icons.play_arrow,
-                      size: 24,
-                      color: colors.textPrimary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-              // 遵循 CeruMusic/Sollin-Music：加载期间禁用按钮，
-              // 避免用户在 URL 获取 / 换源过程中连点导致状态错乱。
-              onPressed: isLoading ? null : () => controller.togglePlayPause(),
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.skip_next,
-                size: 20,
-                color: colors.textSecondary,
+                    const SizedBox(height: 1),
+                    Text(
+                      song.artist,
+                      style: TextStyle(fontSize: 11, color: colors.textHint),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-              onPressed: () => controller.next(),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-          ],
+              IconButton(
+                icon: Icon(
+                  Icons.skip_previous,
+                  size: 20,
+                  color: colors.textSecondary,
+                ),
+                onPressed: () => controller.previous(),
+              ),
+              IconButton(
+                icon: isLoading
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colors.textPrimary,
+                        ),
+                      )
+                    : Icon(
+                        isPlaying ? Icons.pause : Icons.play_arrow,
+                        size: 24,
+                        color: colors.textPrimary,
+                      ),
+                // 遵循 CeruMusic/Sollin-Music：加载期间禁用按钮，
+                // 避免用户在 URL 获取 / 换源过程中连点导致状态错乱。
+                onPressed: isLoading ? null : () => controller.togglePlayPause(),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.skip_next,
+                  size: 20,
+                  color: colors.textSecondary,
+                ),
+                onPressed: () => controller.next(),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+            ],
+          ),
         ),
       ),
     );

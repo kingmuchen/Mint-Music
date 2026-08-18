@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../shared/widgets/music_cover_image.dart';
 import '../../../shared/widgets/song_list_item.dart';
 import '../../player/presentation/mini_player.dart';
 import '../application/search_providers.dart';
+import '../domain/models/playlist.dart';
 import '../../player/application/playback_controller.dart';
 import '../../player/domain/models/song.dart';
 import '../../plugin/domain/plugin_types.dart';
@@ -33,11 +35,23 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   void initState() {
     super.initState();
-    final query = ref.read(searchQueryProvider);
+    // 仅接受“进入搜索页前显式安排的待搜索词”（如识别页跳转），并在消费后
+    // 清空；普通进入一律恢复初始页：关键词、结果列表都归零，搜索栏为空。
+    // 注意：providers 必须延迟到 post-frame 阶段修改，否则会触发
+    // "Tried to modify a provider while the widget tree was building"。
+    final pendingQuery = ref.read(pendingSearchQueryProvider);
+    final query = pendingQuery ?? '';
     _inputText = query;
     _controller.text = query;
     _focusNode.requestFocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (pendingQuery != null) {
+        ref.read(searchQueryProvider.notifier).state = pendingQuery;
+        ref.read(pendingSearchQueryProvider.notifier).state = null;
+      } else {
+        ref.read(searchQueryProvider.notifier).state = '';
+        ref.read(searchResultsControllerProvider.notifier).reset();
+      }
       final defaultSource = ref.read(defaultSourceIdProvider);
       final currentSource = ref.read(searchSourceIdProvider);
       if (currentSource == 'all' || currentSource != defaultSource) {
@@ -78,7 +92,29 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _controller.dispose();
     _focusNode.dispose();
     _resultsScrollController.dispose();
+    _resetSearchState();
     super.dispose();
+  }
+
+  /// 退出搜索页面时清空本次会话的搜索状态，再次进入时回到初始页
+  /// （搜索历史 + 热门搜索），搜索栏不再保留上次的关键词。
+  ///
+  /// 搜索历史本身由 SharedPreferences 持久化，不受影响。
+  /// 在 dispose 中同步修改 provider 会触发 Riverpod 生命周期报错，因此
+  /// 延迟到 microtask 提交。
+  void _resetSearchState() {
+    Future.microtask(() {
+      try {
+        ref.read(searchQueryProvider.notifier).state = '';
+        ref.read(searchPageProvider.notifier).state = 1;
+        ref.read(searchSuggestInputProvider.notifier).state = '';
+        ref.read(searchTabProvider.notifier).state = SearchTab.songs;
+        ref.read(searchResultsControllerProvider.notifier).reset();
+        ref.read(playlistSearchControllerProvider.notifier).reset();
+      } catch (_) {
+        // 页面销毁后 ProviderScope 可能已一并销毁（如 App 退出），忽略即可。
+      }
+    });
   }
 
   bool get _showSuggest => _isFocused && _inputText.isNotEmpty;
@@ -90,11 +126,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     ref.read(searchQueryProvider.notifier).state = query;
     ref.read(searchHistoryProvider.notifier).addQuery(query);
     ref.read(searchPageProvider.notifier).state = 1;
-    unawaited(
-      ref
-          .read(searchResultsControllerProvider.notifier)
-          .start(query, ref.read(searchSourceIdProvider), force: true),
-    );
+    final currentTab = ref.read(searchTabProvider);
+    final sourceId = ref.read(searchSourceIdProvider);
+    if (currentTab == SearchTab.songs) {
+      unawaited(
+        ref
+            .read(searchResultsControllerProvider.notifier)
+            .start(query, sourceId, force: true),
+      );
+    } else {
+      unawaited(
+        ref
+            .read(playlistSearchControllerProvider.notifier)
+            .search(query, sourceId),
+      );
+    }
   }
 
   void _handleResultsScroll() {
@@ -121,11 +167,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ref.read(searchPageProvider.notifier).state = 1;
         final query = ref.read(searchQueryProvider);
         if (query.isNotEmpty) {
-          unawaited(
-            ref
-                .read(searchResultsControllerProvider.notifier)
-                .start(query, next, force: true),
-          );
+          final currentTab = ref.read(searchTabProvider);
+          if (currentTab == SearchTab.songs) {
+            unawaited(
+              ref
+                  .read(searchResultsControllerProvider.notifier)
+                  .start(query, next, force: true),
+            );
+          } else {
+            unawaited(
+              ref
+                  .read(playlistSearchControllerProvider.notifier)
+                  .search(query, next),
+            );
+          }
         }
       }
     });
@@ -133,12 +188,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     ref.listen<String>(searchQueryProvider, (previous, next) {
       if (next.isEmpty) {
         ref.read(searchResultsControllerProvider.notifier).reset();
+        ref.read(playlistSearchControllerProvider.notifier).reset();
       } else if (previous != next) {
-        unawaited(
-          ref
-              .read(searchResultsControllerProvider.notifier)
-              .start(next, ref.read(searchSourceIdProvider)),
-        );
+        final currentTab = ref.read(searchTabProvider);
+        if (currentTab == SearchTab.songs) {
+          unawaited(
+            ref
+                .read(searchResultsControllerProvider.notifier)
+                .start(next, ref.read(searchSourceIdProvider)),
+          );
+        } else {
+          unawaited(
+            ref
+                .read(playlistSearchControllerProvider.notifier)
+                .search(next, ref.read(searchSourceIdProvider)),
+          );
+        }
       }
     });
 
@@ -146,14 +211,26 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       if (previous != null && previous != next) {
         final query = ref.read(searchQueryProvider);
         if (query.isNotEmpty) {
-          unawaited(
-            ref
-                .read(searchResultsControllerProvider.notifier)
-                .start(query, next, force: true),
-          );
+          final currentTab = ref.read(searchTabProvider);
+          if (currentTab == SearchTab.songs) {
+            unawaited(
+              ref
+                  .read(searchResultsControllerProvider.notifier)
+                  .start(query, next, force: true),
+            );
+          } else {
+            unawaited(
+              ref
+                  .read(playlistSearchControllerProvider.notifier)
+                  .search(query, next),
+            );
+          }
         }
       }
     });
+
+    final searchTab = ref.watch(searchTabProvider);
+    final playlistSearchState = ref.watch(playlistSearchControllerProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -187,25 +264,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       ),
                     ),
                   ),
-                ] else
+                ] else ...[
+                  // 搜索结果标签栏（歌曲 / 歌单）
+                  _buildSearchTabBar(colors, searchTab),
+                  // 根据标签页显示对应结果
                   Expanded(
-                    child: _buildSearchResults(colors, searchState),
-                    /*
-                            data: (searchResults) {
-                              if (searchResults.isEmpty)
-                                return _buildEmptyResult(colors);
-                              return _buildSearchResults(colors, searchResults);
-                            },
-                            loading: () =>
-                                const Center(child: CircularProgressIndicator()),
-                            error: (_, __) => Center(
-                              child: Text(
-                                '搜索失败',
-                                style: TextStyle(color: colors.textHint),
-                              ),
-                            ),
-                          */
+                    child: searchTab == SearchTab.songs
+                        ? _buildSearchResults(colors, searchState)
+                        : _buildPlaylistResults(colors, playlistSearchState),
                   ),
+                ],
               ],
             ),
           ),
@@ -542,11 +610,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ref.read(searchPageProvider.notifier).state = 1;
         final query = ref.read(searchQueryProvider);
         if (query.isNotEmpty) {
-          unawaited(
-            ref
-                .read(searchResultsControllerProvider.notifier)
-                .start(query, selectedId, force: true),
-          );
+          final currentTab = ref.read(searchTabProvider);
+          if (currentTab == SearchTab.songs) {
+            unawaited(
+              ref
+                  .read(searchResultsControllerProvider.notifier)
+                  .start(query, selectedId, force: true),
+            );
+          } else {
+            unawaited(
+              ref
+                  .read(playlistSearchControllerProvider.notifier)
+                  .search(query, selectedId),
+            );
+          }
           ref.invalidate(searchSuggestResultsProvider);
         }
       }
@@ -987,6 +1064,239 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildSearchTabBar(ThemeColors colors, SearchTab currentTab) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        0,
+      ),
+      child: Row(
+        children: [
+          _buildTabChip(
+            label: '歌曲',
+            isActive: currentTab == SearchTab.songs,
+            colors: colors,
+            onTap: () {
+              if (currentTab == SearchTab.songs) return;
+              ref.read(searchTabProvider.notifier).state = SearchTab.songs;
+              // 切换到歌曲标签时，如果有搜索词则触发歌曲搜索
+              final query = ref.read(searchQueryProvider).trim();
+              if (query.isNotEmpty) {
+                unawaited(
+                  ref
+                      .read(searchResultsControllerProvider.notifier)
+                      .start(query, ref.read(searchSourceIdProvider), force: true),
+                );
+              }
+            },
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _buildTabChip(
+            label: '歌单',
+            isActive: currentTab == SearchTab.playlists,
+            colors: colors,
+            onTap: () {
+              if (currentTab == SearchTab.playlists) return;
+              ref.read(searchTabProvider.notifier).state = SearchTab.playlists;
+              // 切换到歌单标签时，如果有搜索词则触发歌单搜索
+              final query = ref.read(searchQueryProvider).trim();
+              if (query.isNotEmpty) {
+                unawaited(
+                  ref
+                      .read(playlistSearchControllerProvider.notifier)
+                      .search(query, ref.read(searchSourceIdProvider)),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabChip({
+    required String label,
+    required bool isActive,
+    required ThemeColors colors,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: isActive ? colors.primary : colors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.full),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isActive ? colors.textOnPrimary : colors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaylistResults(ThemeColors colors, PlaylistSearchState state) {
+    if (state.isLoading && state.playlists.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.error != null && state.playlists.isEmpty) {
+      return Center(
+        child: Text('搜索失败', style: TextStyle(color: colors.textHint)),
+      );
+    }
+    if (state.playlists.isEmpty) return _buildEmptyPlaylistResult(colors);
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: AppSpacing.md,
+        crossAxisSpacing: AppSpacing.md,
+        childAspectRatio: 0.82,
+      ),
+      itemCount: state.playlists.length,
+      itemBuilder: (context, index) {
+        final playlist = state.playlists[index];
+        return _buildPlaylistSearchCard(colors, playlist, index);
+      },
+    );
+  }
+
+  Widget _buildPlaylistSearchCard(
+    ThemeColors colors,
+    Playlist playlist,
+    int index,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        context.push('/playlist/${playlist.id}');
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          colors.primary.withValues(alpha: 0.3 + index * 0.05),
+                          colors.surfaceVariant,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: MusicCoverImage(
+                      url: playlist.coverUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: Icon(
+                        Icons.music_note,
+                        size: 40,
+                        color: colors.textHint,
+                      ),
+                    ),
+                  ),
+                  if (playlist.playCount != null &&
+                      playlist.playCount!.isNotEmpty)
+                    Positioned(
+                      top: AppSpacing.xs,
+                      right: AppSpacing.xs,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(AppRadius.xs),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.play_arrow,
+                              size: 10,
+                              color: colors.textOnPrimary,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              playlist.playCount!,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: colors.textOnPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    playlist.title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: colors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${playlist.songCount}首歌曲',
+                    style: TextStyle(fontSize: 11, color: colors.textHint),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyPlaylistResult(ThemeColors colors) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.queue_music, size: 48, color: colors.textHint),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '未找到相关歌单',
+            style: TextStyle(fontSize: 14, color: colors.textHint),
+          ),
+        ],
+      ),
     );
   }
 

@@ -235,7 +235,7 @@ class MusicAudioHandler extends BaseAudioHandler
         : Uri.file(song.sourceUrl!);
 
     if (song.sourceUrl!.startsWith('http')) {
-      final headers = _headersForUrl(
+      final headers = audioHeadersForUrl(
         song.sourceUrl!,
         songHeaders: song.sourceHeaders,
       );
@@ -399,7 +399,7 @@ class MusicAudioHandler extends BaseAudioHandler
 
     try {
       if (url.startsWith('http')) {
-        final requestHeaders = _headersForUrl(
+        final requestHeaders = audioHeadersForUrl(
           url,
           songHeaders: song?.sourceHeaders,
           extraHeaders: headers,
@@ -439,45 +439,67 @@ class MusicAudioHandler extends BaseAudioHandler
             .firstWhere(
               (duration) => duration != null && duration > Duration.zero,
             )
-            .timeout(const Duration(seconds: 3));
+            .timeout(const Duration(seconds: 8));
       } catch (_) {
-        throw const FormatException('Unable to verify Kuwo media duration');
+        actual = null;
       }
     }
     if (actual == null || actual <= Duration.zero) {
-      throw const FormatException('Unable to verify Kuwo media duration');
+      // URL 已成功加载但拿不到时长（车机 CDN 冷启动/大文件 FLAC 慢网速、
+      // 播放器时长上报延迟等）。CeruMusic/LX Music 都是直接把插件返回的
+      // 酷我地址交给播放器，不做时长校验；这里同样放行，避免把可正常播放
+      // 的真实歌曲误判为失败。提示音仍会在时长可得时被下方校验拦截。
+      debugPrint(
+        '[MusicAudioHandler] Kuwo media duration unavailable, '
+        'playing anyway: $url',
+      );
+      return;
     }
 
-    final expectedSeconds = song!.duration;
+    final error = kuwoDurationValidationError(song!, actual);
+    if (error != null) {
+      debugPrint(
+        '[MusicAudioHandler] rejected Kuwo media: $error '
+        'urlHost=${Uri.tryParse(url)?.host ?? 'invalid'}',
+      );
+      throw FormatException(error);
+    }
+  }
+
+  /// 校验酷我音频实际加载时长是否与歌曲预期一致。
+  ///
+  /// 真实播放与插件测试共用同一套规则，保证"测试通过"即"实际可播"：
+  /// 返回 null 表示时长可接受，否则返回拒绝原因。歌曲预期时长未知时，
+  /// 用绝对阈值拦截明显过短的提示音；预期已知时允许小幅出入（编曲
+  /// 前后奏差异），但提示音远超此容差会被拒绝。
+  static String? kuwoDurationValidationError(Song song, Duration actual) {
+    if (song.source != 'kw') return null;
+
     final actualSeconds = actual.inSeconds;
+    final expectedSeconds = song.duration;
 
     // 没有预期时长时，用绝对阈值拦截明显的提示音/错误音频。
     if (expectedSeconds <= 0) {
       const minRealSongSeconds = 25;
       if (actualSeconds < minRealSongSeconds) {
-        debugPrint(
-          '[MusicAudioHandler] rejected short Kuwo media without expected duration: '
-          'actual=${actualSeconds}s urlHost=${Uri.tryParse(url)?.host ?? 'invalid'}',
-        );
-        throw const FormatException('Kuwo media too short to be a real song');
+        return '酷我音频时长过短（${actualSeconds}s），疑似提示音';
       }
-      return;
+      return null;
     }
 
     // Search results can differ by a few seconds because of intro/outro
     // edits. A short prompt, however, is far outside this tolerance.
     final tolerance = max(8, (expectedSeconds * 0.12).round());
     if ((actualSeconds - expectedSeconds).abs() > tolerance) {
-      debugPrint(
-        '[MusicAudioHandler] rejected mismatched Kuwo media: '
-        'expected=${expectedSeconds}s actual=${actualSeconds}s '
-        'urlHost=${Uri.tryParse(url)?.host ?? 'invalid'}',
-      );
-      throw const FormatException('Kuwo media duration does not match song');
+      return '酷我音频时长(${actualSeconds}s)与歌曲预期(${expectedSeconds}s)不符';
     }
+    return null;
   }
 
-  Map<String, String> _headersForUrl(
+  /// 构建 CDN 音频请求头（含各源 Referer 与酷我车机 CDN 无头规则）。
+  ///
+  /// 公开为静态方法，插件测试等服务可复用同一套请求头规则。
+  static Map<String, String> audioHeadersForUrl(
     String url, {
     Map<String, String>? songHeaders,
     Map<String, String>? extraHeaders,

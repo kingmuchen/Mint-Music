@@ -5,6 +5,7 @@ import '../data/plugin_service.dart';
 import '../data/netease_music_source.dart';
 import '../data/kugou_music_source.dart';
 import 'music_source_manager.dart';
+import 'plugin_test_service.dart';
 
 final neteaseMusicSourceProvider = Provider<NeteaseMusicSource>((ref) {
   final source = NeteaseMusicSource();
@@ -52,6 +53,13 @@ final musicSourceManagerProvider = Provider<MusicSourceManager>((ref) {
   final manager = MusicSourceManager(pluginService);
   ref.onDispose(() => manager.dispose());
   return manager;
+});
+
+final pluginTestServiceProvider = Provider<PluginTestService>((ref) {
+  return PluginTestService(
+    manager: ref.watch(musicSourceManagerProvider),
+    pluginService: ref.watch(pluginServiceProvider),
+  );
 });
 
 final pluginSupportedSourcesProvider = Provider<List<SourceInfo>>((ref) {

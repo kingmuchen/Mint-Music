@@ -131,6 +131,24 @@ class BuiltInMusicSource implements MusicSourceProvider {
   }
 
   @override
+  Future<List<Playlist>> searchPlaylists(
+    String query, {
+    int page = 1,
+    int limit = 30,
+  }) async {
+    if (query.isEmpty) return [];
+    final all = await getHotPlaylists();
+    final q = query.toLowerCase();
+    return all
+        .where(
+          (p) =>
+              p.title.toLowerCase().contains(q) ||
+              p.description.toLowerCase().contains(q),
+        )
+        .toList();
+  }
+
+  @override
   Future<List<String>> getSearchSuggestions(String query) async {
     if (query.isEmpty) return [];
     return _allSongs

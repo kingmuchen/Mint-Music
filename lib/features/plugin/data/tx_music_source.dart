@@ -2679,6 +2679,65 @@ class QQMusicSource implements MusicSourceProvider {
   }
 
   @override
+  Future<List<Playlist>> searchPlaylists(
+    String query, {
+    int page = 1,
+    int limit = 30,
+  }) async {
+    if (query.isEmpty) return [];
+    try {
+      // 使用 Mio-Music 一致的歌单搜索 API（client_music_search_songlist）
+      final url =
+          'http://c.y.qq.com/soso/fcgi-bin/client_music_search_songlist?page_no=${page - 1}&num_per_page=$limit&format=json&query=${Uri.encodeQueryComponent(query)}&remoteplace=txt.yqq.playlist&inCharset=utf8&outCharset=utf-8';
+      final response = await _apiService.get(
+        url,
+        headers: {
+          'Referer': 'http://y.qq.com/portal/search.html',
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36',
+        },
+      );
+      dynamic data = response.data;
+      if (data == null) return [];
+
+      // QQ Music API 可能返回原始 JSON 字符串
+      if (data is String) {
+        try {
+          data = jsonDecode(data);
+        } catch (_) {
+          return [];
+        }
+      }
+      if (data is! Map) return [];
+
+      final code = data['code'] as int? ?? -1;
+      if (code != 0) return [];
+
+      final playlistList = data['data']?['list'] as List? ?? [];
+      final total = data['data']?['sum'] as int? ?? 0;
+      if (playlistList.isEmpty) return [];
+
+      return playlistList.map((item) {
+        final creator = item['creator'];
+        return Playlist(
+          id: 'tx_${item['dissid']}',
+          title: item['dissname']?.toString() ?? '',
+          description: _decodeXmlEntities(item['introduction']?.toString() ?? ''),
+          coverUrl: item['imgurl']?.toString().replaceAll('{size}', '400'),
+          songCount: int.tryParse(
+            (item['song_count'] ?? item['songcnt'] ?? 0).toString(),
+          ) ?? 0,
+          playCount: item['listennum']?.toString(),
+          author: creator is Map ? creator['name']?.toString() : null,
+          source: 'tx',
+        );
+      }).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
   Future<List<String>> getSearchSuggestions(String query) async {
     if (query.isEmpty) return [];
     try {

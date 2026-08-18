@@ -5,9 +5,20 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../application/plugin_providers.dart';
 import '../domain/models/plugin_info.dart';
+import 'plugin_test_dialog.dart';
 
 class PluginManagementPage extends ConsumerStatefulWidget {
   const PluginManagementPage({super.key});
+
+  /// 把插件加载/操作异常转成用户可读的提示，避免直接展示晦涩的
+  /// "Stack Overflow" 原始错误文本（大型洛雪插件脚本递归过深时常见）。
+  static String pluginErrorMessage(Object error) {
+    final text = error.toString().replaceFirst('Exception: ', '');
+    if (text.contains('Stack Overflow') || text.contains('stack overflow')) {
+      return '插件加载失败：插件脚本过大导致 JS 引擎栈溢出，请更换精简版插件';
+    }
+    return text;
+  }
 
   @override
   ConsumerState<PluginManagementPage> createState() =>
@@ -285,6 +296,21 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                   style: TextStyle(fontSize: 11, color: colors.textHint),
                 ),
                 const Spacer(),
+                // 插件测试仅对已启用插件显示：未启用的插件未加载运行时，
+                // 测试服务无法解析其音源与音质，展示按钮只会误导用户。
+                if (plugin.isEnabled)
+                  GestureDetector(
+                    onTap: () => _showPluginTestDialog(plugin),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                      ),
+                      child: Text(
+                        '插件测试',
+                        style: TextStyle(fontSize: 12, color: colors.primary),
+                      ),
+                    ),
+                  ),
                 GestureDetector(
                   onTap: () => _showUninstallDialog(colors, plugin),
                   child: Padding(
@@ -318,7 +344,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          content: Text(PluginManagementPage.pluginErrorMessage(error)),
           backgroundColor: colors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -335,6 +361,13 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => _AddPluginSheet(colors: colors, ref: ref),
+    );
+  }
+
+  void _showPluginTestDialog(PluginInfo plugin) {
+    showDialog(
+      context: context,
+      builder: (ctx) => PluginTestDialog(plugin: plugin),
     );
   }
 
@@ -757,7 +790,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(PluginManagementPage.pluginErrorMessage(e)),
             backgroundColor: widget.colors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -800,7 +833,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(PluginManagementPage.pluginErrorMessage(e)),
             backgroundColor: widget.colors.error,
             behavior: SnackBarBehavior.floating,
           ),

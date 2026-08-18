@@ -51,6 +51,8 @@ void main() async {
   // created until the lyric route is actually shown.
   if (container.read(routePreloadEnabledProvider)) {
     unawaited(AmllLyricPlayerState.prewarm());
+    // 预热字体缓存：在后台完成 base64 编码，避免首次打开歌词页时阻塞 UI
+    unawaited(AmllLyricPlayerState.prewarmFonts('lyricfont'));
   }
 
   print('>>> main: 启动应用...');

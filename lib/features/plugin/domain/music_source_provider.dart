@@ -29,4 +29,11 @@ abstract class MusicSourceProvider {
 
   Future<List<String>> getHotSearchTags();
   Future<List<String>> getSearchSuggestions(String query);
+
+  /// 搜索歌单，返回匹配关键词的歌单列表。
+  Future<List<Playlist>> searchPlaylists(
+    String query, {
+    int page = 1,
+    int limit = 30,
+  });
 }
