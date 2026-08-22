@@ -157,9 +157,7 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
                         final amllEnabled = AmllToggleService().enabled;
                         return PageView.builder(
                           controller: _pageController,
-                          physics: amllEnabled
-                              ? const NeverScrollableScrollPhysics()
-                              : const ClampingScrollPhysics(),
+                          physics: const NeverScrollableScrollPhysics(),
                           itemCount: 2,
                           onPageChanged: (index) {
                             if (mounted) {
@@ -170,7 +168,15 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
                           itemBuilder: (context, index) {
                             if (index == 0) {
                               return _KeepAlivePage(
-                                child: _PlayerCoverPage(isPlaying: isPlaying),
+                                child: _PlayerCoverPage(
+                                  isPlaying: isPlaying,
+                                  onTapCover: () {
+                                    if (_currentPage == 0) {
+                                      _activateLyricsPage();
+                                      _pageController.jumpToPage(1);
+                                    }
+                                  },
+                                ),
                               );
                             }
                             if (!_lyricsPageBuilt)
@@ -448,7 +454,8 @@ class _PlayerHeader extends ConsumerWidget {
 
 class _PlayerCoverPage extends ConsumerWidget {
   final bool isPlaying;
-  const _PlayerCoverPage({required this.isPlaying});
+  final VoidCallback? onTapCover;
+  const _PlayerCoverPage({required this.isPlaying, this.onTapCover});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -461,35 +468,38 @@ class _PlayerCoverPage extends ConsumerWidget {
     );
 
     return Center(
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 500),
-        scale: isPlaying ? 1.0 : 0.95,
-        curve: Curves.easeOutCubic,
-        child: Container(
-          width: 288,
-          height: 288,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color:
-                    bgMode == FullScreenBackgroundMode.theme &&
-                        dominantColor != null
-                    ? HSLColor.fromColor(dominantColor)
-                          .withLightness(
-                            (HSLColor.fromColor(dominantColor).lightness - 0.2)
-                                .clamp(0.0, 0.5),
-                          )
-                          .toColor()
-                          .withValues(alpha: 0.4)
-                    : Colors.black.withValues(alpha: 0.5),
-                blurRadius: 50,
-                offset: const Offset(0, 25),
-              ),
-            ],
+      child: GestureDetector(
+        onTap: onTapCover,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 500),
+          scale: isPlaying ? 1.0 : 0.95,
+          curve: Curves.easeOutCubic,
+          child: Container(
+            width: 288,
+            height: 288,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color:
+                      bgMode == FullScreenBackgroundMode.theme &&
+                          dominantColor != null
+                      ? HSLColor.fromColor(dominantColor)
+                            .withLightness(
+                              (HSLColor.fromColor(dominantColor).lightness - 0.2)
+                                  .clamp(0.0, 0.5),
+                            )
+                            .toColor()
+                            .withValues(alpha: 0.4)
+                      : Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 50,
+                  offset: const Offset(0, 25),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: _buildCoverImage(song),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: _buildCoverImage(song),
         ),
       ),
     );

@@ -31,6 +31,7 @@ class PluginInfo {
   final DateTime installTime;
   final List<PluginSource> supportedSources;
   final String? filePath;
+  final String? updateUrl;
 
   const PluginInfo({
     required this.id,
@@ -43,6 +44,7 @@ class PluginInfo {
     required this.installTime,
     this.supportedSources = const [],
     this.filePath,
+    this.updateUrl,
   });
 
   PluginInfo copyWith({
@@ -56,6 +58,7 @@ class PluginInfo {
     DateTime? installTime,
     List<PluginSource>? supportedSources,
     String? filePath,
+    String? updateUrl,
   }) {
     return PluginInfo(
       id: id ?? this.id,
@@ -68,6 +71,7 @@ class PluginInfo {
       installTime: installTime ?? this.installTime,
       supportedSources: supportedSources ?? this.supportedSources,
       filePath: filePath ?? this.filePath,
+      updateUrl: updateUrl ?? this.updateUrl,
     );
   }
 
@@ -83,6 +87,7 @@ class PluginInfo {
       'installTime': installTime.toIso8601String(),
       'supportedSources': supportedSources.map((s) => s.toJson()).toList(),
       'filePath': filePath,
+      if (updateUrl != null) 'updateUrl': updateUrl,
     };
   }
 
@@ -101,6 +106,7 @@ class PluginInfo {
               .toList() ??
           [],
       filePath: json['filePath'] as String?,
+      updateUrl: json['updateUrl'] as String?,
     );
   }
 }

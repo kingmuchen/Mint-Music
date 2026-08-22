@@ -4,7 +4,7 @@ import '../domain/models/plugin_info.dart';
 import '../../plugin/application/plugin_providers.dart';
 
 export '../../plugin/application/plugin_providers.dart'
-    show musicSourceManagerProvider;
+    show musicSourceManagerProvider, pluginServiceProvider, pluginInitializedProvider;
 
 final pluginRepositoryProvider = Provider<PluginRepository>((ref) {
   return PluginRepository();
@@ -14,6 +14,10 @@ final pluginsProvider =
     AsyncNotifierProvider<PluginsNotifier, List<PluginInfo>>(
       PluginsNotifier.new,
     );
+
+/// Holds the results of the latest plugin update check.
+final pluginUpdateResultsProvider =
+    StateProvider<List<PluginUpdateResult>>((ref) => []);
 
 class PluginsNotifier extends AsyncNotifier<List<PluginInfo>> {
   @override
@@ -77,5 +81,12 @@ class PluginsNotifier extends AsyncNotifier<List<PluginInfo>> {
       }
       rethrow;
     }
+  }
+
+  /// Check all installed plugins for updates.
+  Future<void> checkForUpdates() async {
+    final repo = ref.read(pluginRepositoryProvider);
+    final results = await repo.checkAllPluginUpdates();
+    ref.read(pluginUpdateResultsProvider.notifier).state = results;
   }
 }

@@ -229,4 +229,115 @@ class PluginRepository {
       await savePlugins(plugins);
     }
   }
+
+  /// Check if a plugin has an update available by fetching its updateUrl
+  /// and comparing the version number.
+  Future<PluginUpdateResult> checkPluginUpdate(PluginInfo plugin) async {
+    if (plugin.updateUrl == null || plugin.updateUrl!.isEmpty) {
+      return PluginUpdateResult(plugin: plugin, available: false);
+    }
+
+    try {
+      final response = await _dio.get(
+        plugin.updateUrl!,
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {'User-Agent': 'MintMusic/1.0'},
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
+
+      if (response.statusCode != 200) {
+        return PluginUpdateResult(plugin: plugin, available: false);
+      }
+
+      final code = response.data.toString();
+      final remoteVersion = _extractVersionFromCode(code);
+
+      if (remoteVersion != null && _isNewerVersion(remoteVersion, plugin.version)) {
+        return PluginUpdateResult(
+          plugin: plugin,
+          available: true,
+          remoteVersion: remoteVersion,
+          remoteCode: code,
+        );
+      }
+    } catch (e) {
+      print('[PluginRepository] Update check failed for ${plugin.name}: $e');
+    }
+
+    return PluginUpdateResult(plugin: plugin, available: false);
+  }
+
+  /// Check all installed plugins for updates.
+  Future<List<PluginUpdateResult>> checkAllPluginUpdates() async {
+    final plugins = await loadPlugins();
+    final results = <PluginUpdateResult>[];
+
+    // Check updates in parallel with a small delay to avoid overwhelming
+    for (final plugin in plugins) {
+      if (plugin.updateUrl == null || plugin.updateUrl!.isEmpty) continue;
+      results.add(await checkPluginUpdate(plugin));
+    }
+
+    return results;
+  }
+
+  /// Extract version string from plugin JS code.
+  String? _extractVersionFromCode(String code) {
+    // Try common version patterns in JS plugin code
+    // 1. @version X.Y.Z in comment header
+    final commentVersion = RegExp(
+      r'@version\s+(\S+)',
+      caseSensitive: false,
+    ).firstMatch(code);
+    if (commentVersion != null) {
+      return commentVersion.group(1);
+    }
+
+    // 2. version: 'X.Y.Z' in object literal
+    final objectVersion = RegExp(
+      "version\\s*:\\s*['\"]([^'\"]+)['\"]",
+      caseSensitive: false,
+    ).firstMatch(code);
+    if (objectVersion != null) {
+      return objectVersion.group(1);
+    }
+
+    return null;
+  }
+
+  /// Compare two semantic version strings.
+  /// Returns true if [remote] is newer than [local].
+  bool _isNewerVersion(String remote, String local) {
+    final remoteParts = _parseVersion(remote);
+    final localParts = _parseVersion(local);
+
+    for (var i = 0; i < 3; i++) {
+      final r = i < remoteParts.length ? remoteParts[i] : 0;
+      final l = i < localParts.length ? localParts[i] : 0;
+      if (r > l) return true;
+      if (r < l) return false;
+    }
+    return false;
+  }
+
+  List<int> _parseVersion(String version) {
+    final cleaned = version.replaceAll(RegExp(r'[^0-9.]'), '');
+    return cleaned.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+  }
+}
+
+class PluginUpdateResult {
+  final PluginInfo plugin;
+  final bool available;
+  final String? remoteVersion;
+  final String? remoteCode;
+
+  const PluginUpdateResult({
+    required this.plugin,
+    required this.available,
+    this.remoteVersion,
+    this.remoteCode,
+  });
 }

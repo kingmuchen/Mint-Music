@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../application/plugin_providers.dart';
+import '../data/plugin_repository.dart';
 import '../domain/models/plugin_info.dart';
 import 'plugin_test_dialog.dart';
 
@@ -26,10 +28,35 @@ class PluginManagementPage extends ConsumerStatefulWidget {
 }
 
 class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
+  bool _isCheckingUpdates = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-check for updates when the page loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAllUpdates();
+    });
+  }
+
+  Future<void> _checkAllUpdates() async {
+    if (_isCheckingUpdates) return;
+    setState(() => _isCheckingUpdates = true);
+    try {
+      await ref.read(pluginsProvider.notifier).checkForUpdates();
+    } catch (e) {
+      // Silently handle update check errors
+      debugPrint('Plugin update check failed: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingUpdates = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = ref.watch(themeColorsProvider);
     final pluginsAsync = ref.watch(pluginsProvider);
+    final updateResults = ref.watch(pluginUpdateResultsProvider);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -49,6 +76,21 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
           ),
         ),
         actions: [
+          if (_isCheckingUpdates)
+            const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else
+            IconButton(
+              icon: Icon(Icons.refresh, color: colors.primary),
+              onPressed: _checkAllUpdates,
+              tooltip: '检查更新',
+            ),
           IconButton(
             icon: Icon(Icons.add, color: colors.primary),
             onPressed: () => _showAddPluginSheet(colors),
@@ -61,8 +103,11 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
             : ListView.builder(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 itemCount: plugins.length,
-                itemBuilder: (context, index) =>
-                    _buildPluginCard(colors, plugins[index]),
+                itemBuilder: (context, index) => _buildPluginCard(
+                  colors,
+                  plugins[index],
+                  updateResults,
+                ),
               ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -140,11 +185,20 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
     );
   }
 
-  Widget _buildPluginCard(ThemeColors colors, PluginInfo plugin) {
+  Widget _buildPluginCard(
+    ThemeColors colors,
+    PluginInfo plugin,
+    List<PluginUpdateResult> updateResults,
+  ) {
     final typeLabel = plugin.type == 'lx' ? '洛雪' : '澜音';
     final typeColor = plugin.type == 'lx'
         ? const Color(0xFF4FC3F7)
         : const Color(0xFFCE93D8);
+
+    // Find update result for this plugin
+    final updateResult = updateResults
+        .where((r) => r.plugin.id == plugin.id && r.available)
+        .firstOrNull;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -152,10 +206,12 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
         color: colors.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
-          color: plugin.isEnabled
-              ? colors.primary.withValues(alpha: 0.2)
-              : colors.divider,
-          width: plugin.isEnabled ? 1 : 0.5,
+          color: updateResult != null
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.5)
+              : plugin.isEnabled
+                  ? colors.primary.withValues(alpha: 0.2)
+                  : colors.divider,
+          width: updateResult != null ? 1.5 : (plugin.isEnabled ? 1 : 0.5),
         ),
       ),
       child: Column(
@@ -174,10 +230,20 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: colors.primary.withValues(alpha: 0.12),
+                    color: updateResult != null
+                        ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
+                        : colors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
-                  child: Icon(Icons.extension, color: colors.primary, size: 22),
+                  child: Icon(
+                    updateResult != null
+                        ? Icons.system_update
+                        : Icons.extension,
+                    color: updateResult != null
+                        ? const Color(0xFF4CAF50)
+                        : colors.primary,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
@@ -217,6 +283,27 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                               ),
                             ),
                           ),
+                          if (updateResult != null) ...[
+                            const SizedBox(width: AppSpacing.sm),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '可更新 v${updateResult.remoteVersion}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF4CAF50),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -296,6 +383,23 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                   style: TextStyle(fontSize: 11, color: colors.textHint),
                 ),
                 const Spacer(),
+                if (updateResult != null)
+                  GestureDetector(
+                    onTap: () => _showUpdateDialog(colors, updateResult),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                      ),
+                      child: Text(
+                        '更新',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF4CAF50),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 // 插件测试仅对已启用插件显示：未启用的插件未加载运行时，
                 // 测试服务无法解析其音源与音质，展示按钮只会误导用户。
                 if (plugin.isEnabled)
@@ -465,6 +569,153 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
         ],
       ),
     );
+  }
+
+  void _showUpdateDialog(ThemeColors colors, PluginUpdateResult result) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.system_update, color: Color(0xFF4CAF50), size: 24),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              '插件更新',
+              style: TextStyle(color: colors.textPrimary, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.extension, color: colors.primary, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          result.plugin.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'v${result.plugin.version} → v${result.remoteVersion}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: const Color(0xFF4CAF50),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              '发现新版本 v${result.remoteVersion}，是否更新？',
+              style: TextStyle(color: colors.textSecondary, fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('取消', style: TextStyle(color: colors.textHint)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _applyUpdate(result);
+            },
+            child: const Text(
+              '更新',
+              style: TextStyle(
+                color: Color(0xFF4CAF50),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _applyUpdate(PluginUpdateResult result) async {
+    if (!mounted) return;
+    final colors = ref.read(themeColorsProvider);
+
+    // Show loading
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('正在更新 ${result.plugin.name}...'),
+        backgroundColor: colors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      // Uninstall old plugin
+      await ref.read(pluginsProvider.notifier).uninstallPlugin(result.plugin.id);
+
+      // Determine plugin type from the updateUrl or the existing plugin
+      final type = result.plugin.type;
+
+      // Download and install the new version from the updateUrl
+      final pluginService = ref.read(pluginServiceProvider);
+      final newPlugin = await pluginService.downloadAndAddPlugin(
+        result.plugin.updateUrl!,
+        type,
+      );
+
+      ref.invalidate(pluginInitializedProvider);
+      ref.invalidate(pluginsProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '"${newPlugin.name} v${newPlugin.version}" 更新成功',
+              style: TextStyle(color: colors.textOnPrimary),
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // Refresh update results
+        _checkAllUpdates();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '更新失败: ${PluginManagementPage.pluginErrorMessage(e)}',
+            ),
+            backgroundColor: colors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -717,6 +968,23 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
               hintText: '输入插件JS文件的URL地址',
               hintStyle: TextStyle(fontSize: 13, color: colors.textHint),
               prefixIcon: Icon(Icons.link, color: colors.textHint, size: 20),
+              suffixIcon: _urlController.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear, color: colors.textHint, size: 18),
+                      onPressed: () {
+                        _urlController.clear();
+                        setState(() {});
+                      },
+                    )
+                  : IconButton(
+                      icon: Icon(
+                        Icons.content_paste,
+                        color: colors.primary,
+                        size: 18,
+                      ),
+                      tooltip: '粘贴链接',
+                      onPressed: _pasteFromClipboard,
+                    ),
               filled: true,
               fillColor: colors.surfaceVariant,
               border: OutlineInputBorder(
@@ -733,10 +1001,11 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
               ),
             ),
             keyboardType: TextInputType.url,
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '支持 HTTP/HTTPS 链接，将自动下载并校验插件格式',
+            '支持 HTTP/HTTPS 链接和 GitHub 仓库链接，将自动下载并校验插件格式',
             style: TextStyle(fontSize: 11, color: colors.textHint),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -801,12 +1070,36 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
     }
   }
 
+  Future<void> _pasteFromClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text != null && data!.text!.isNotEmpty) {
+        _urlController.text = data.text!;
+        setState(() {});
+      }
+    } catch (_) {
+      // Ignore clipboard access errors
+    }
+  }
+
   Future<void> _handleUrlDownload() async {
     final url = _urlController.text.trim();
     if (url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('请输入URL地址'),
+          backgroundColor: widget.colors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Basic URL format validation
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('请输入有效的HTTP/HTTPS链接'),
           backgroundColor: widget.colors.error,
           behavior: SnackBarBehavior.floating,
         ),

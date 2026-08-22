@@ -84,6 +84,15 @@ class _RawLrcLine {
   const _RawLrcLine({required this.timestampMs, required this.text});
 }
 
+/// Remove timed word tags like `(37196,207)` or `（37196，207）`
+/// from romanization text so only the readable text remains.
+String _stripTimedWordTags(String text) {
+  // ASCII parentheses: (ms,dur) or (ms,dur,extra)
+  // Chinese full-width: （ms，dur） or （ms，dur，extra）
+  return text
+      .replaceAll(RegExp(r'[(（]\d+[,，]\d+(?:[,，]\d+)?[)）]'), '');
+}
+
 Map<int, String> _parseTranslationLrc(String? lrcText) {
   if (lrcText == null || lrcText.isEmpty) return {};
 
@@ -99,7 +108,7 @@ Map<int, String> _parseTranslationLrc(String? lrcText) {
     var msStr = match.group(3)!;
     if (msStr.length == 2) msStr = '${msStr}0';
     final ms = int.parse(msStr);
-    final text = match.group(4)?.trim() ?? '';
+    final text = _stripTimedWordTags(match.group(4)?.trim() ?? '');
     if (text.isEmpty) continue;
 
     final timestampMs = minutes * 60000 + seconds * 1000 + ms;
@@ -452,7 +461,7 @@ List<LyricLine> mergeRomanLyric(List<LyricLine> base, String? rlyric) {
   if (anchorIndex != null) {
     var j = anchorIndex;
     for (int i = 0; i < base.length && j < romanized.length; i++, j++) {
-      final romanText = romanized[j].plainText;
+      final romanText = _stripTimedWordTags(romanized[j].plainText);
       if (romanText.isEmpty || base[i].plainText.isEmpty) continue;
       if (base[i].romanLyric == null) {
         base[i] = base[i].copyWith(romanLyric: romanText);

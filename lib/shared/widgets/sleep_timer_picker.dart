@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -85,6 +86,10 @@ class _SleepTimerPickerSheet extends ConsumerStatefulWidget {
 class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> {
   final _hourCtrl = TextEditingController();
   final _minCtrl = TextEditingController();
+  String? _errorText;
+
+  /// 最大可设置时长（分钟），参考 lx-music。
+  static const _maxMinutes = 1440;
 
   @override
   void dispose() {
@@ -167,6 +172,13 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                     child: TextField(
                       controller: _hourCtrl,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
+                      onChanged: (_) {
+                        if (_errorText != null) setState(() => _errorText = null);
+                      },
                       decoration: const InputDecoration(
                         hintText: '0',
                         labelText: '时',
@@ -185,6 +197,13 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                     child: TextField(
                       controller: _minCtrl,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
+                      onChanged: (_) {
+                        if (_errorText != null) setState(() => _errorText = null);
+                      },
                       decoration: const InputDecoration(
                         hintText: '30',
                         labelText: '分',
@@ -203,6 +222,12 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                       final h = int.tryParse(_hourCtrl.text) ?? 0;
                       final m = int.tryParse(_minCtrl.text) ?? 0;
                       final total = h * 60 + m;
+                      if (total > _maxMinutes) {
+                        setState(() {
+                          _errorText = '自定义时长不能超过${_maxMinutes ~/ 60}小时';
+                        });
+                        return;
+                      }
                       if (total > 0) {
                         notifier.start(Duration(minutes: total));
                         Navigator.pop(context);
@@ -213,7 +238,15 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            if (_errorText != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 4),
+                child: Text(
+                  _errorText!,
+                  style: const TextStyle(fontSize: 12, color: Colors.red),
+                ),
+              ),
+            const SizedBox(height: 12),
           ],
         ),
       ),

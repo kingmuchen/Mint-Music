@@ -77,28 +77,60 @@ class PluginService {
   }
 
   Future<PluginInfo> downloadAndAddPlugin(String url, String type) async {
-    final dio = Dio();
-    final response = await dio.get(
-      url,
-      options: Options(
-        responseType: ResponseType.plain,
-        headers: {'User-Agent': 'MintMusic/1.0'},
-        receiveTimeout: const Duration(seconds: 30),
-      ),
-    );
+    // Normalize URL (e.g., convert GitHub blob URLs to raw URLs)
+    url = _normalizePluginUrl(url);
 
-    if (response.statusCode != 200) {
-      throw Exception('下载失败: HTTP ${response.statusCode}');
+    final dio = Dio();
+    String pluginCode;
+    try {
+      // Use ResponseType.bytes to guarantee raw bytes — Dio with
+      // ResponseType.plain may still parse JSON bodies, which breaks
+      // when the server returns a JSON-wrapped plugin download.
+      final response = await dio.get(
+        url,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+          },
+          receiveTimeout: const Duration(seconds: 30),
+          followRedirects: true,
+          maxRedirects: 10,
+        ),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('下载失败: HTTP ${response.statusCode}');
+      }
+
+      pluginCode = _decodeResponseBody(response.data);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        throw Exception('下载超时，请检查网络连接后重试');
+      }
+      if (e.type == DioExceptionType.connectionError) {
+        throw Exception('无法连接到服务器，请检查网络连接');
+      }
+      throw Exception('下载失败: ${e.message}');
     }
 
-    String pluginCode = response.data.toString();
-    String? originalPluginCode;
+    // Strip UTF-8 BOM if present
+    if (pluginCode.startsWith('\uFEFF')) {
+      pluginCode = pluginCode.substring(1);
+    }
+
     if (pluginCode.trim().isEmpty) {
       throw Exception('下载的文件内容为空');
     }
 
     _validatePluginCode(pluginCode, type);
 
+    String? originalPluginCode;
     if (type == 'lx') {
       originalPluginCode = pluginCode;
       final converter = LxPluginConverter();
@@ -111,7 +143,121 @@ class PluginService {
       fileName,
       type,
       originalPluginCode: originalPluginCode,
+      sourceUrl: url,
     );
+  }
+
+  /// Decode raw response bytes to a plugin script string.
+  ///
+  /// Some LX plugin download APIs return the JS code directly, while
+  /// others wrap it in a JSON response (e.g. `{"data": "..."}` or
+  /// `["..."]`). This method handles both cases:
+  /// 1. If the bytes decode to raw JS code, return it directly.
+  /// 2. If they look like JSON, parse and try to extract the JS content
+  ///    from common wrapper patterns.
+  String _decodeResponseBody(dynamic data) {
+    // data should be List<int> from ResponseType.bytes
+    if (data is! List<int>) {
+      return data.toString();
+    }
+    final text = utf8.decode(data, allowMalformed: true);
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return '';
+
+    // If it starts with /\* or looks like JS, return as-is
+    if (trimmed.startsWith('/*') ||
+        trimmed.startsWith('//') ||
+        trimmed.startsWith('function') ||
+        trimmed.startsWith('var ') ||
+        trimmed.startsWith('const ') ||
+        trimmed.startsWith('let ') ||
+        trimmed.startsWith('class ') ||
+        trimmed.startsWith('"use strict"') ||
+        trimmed.startsWith("'use strict'")) {
+      return text;
+    }
+
+    // Try to extract JS from JSON wrapper
+    try {
+      final json = jsonDecode(trimmed);
+      return _extractScriptFromJson(json);
+    } catch (_) {
+      // Not JSON — return raw text as-is (may be JS that doesn't
+      // start with a common prefix)
+      return text;
+    }
+  }
+
+  /// Recursively search a parsed JSON value for a string that looks
+  /// like a JavaScript plugin script.
+  String _extractScriptFromJson(dynamic json) {
+    // String that looks like JS code
+    if (json is String) {
+      return json;
+    }
+    // Array — try each element
+    if (json is List) {
+      for (final item in json) {
+        if (item is String && item.length > 50) {
+          return item;
+        }
+        if (item is Map || item is List) {
+          final result = _extractScriptFromJson(item);
+          if (result.isNotEmpty) return result;
+        }
+      }
+      // Fallback: join string elements
+      final strings = json.whereType<String>();
+      if (strings.isNotEmpty) return strings.first;
+    }
+    // Object — look for common keys first, then recurse
+    if (json is Map) {
+      for (final key in ['data', 'code', 'content', 'script', 'body',
+          'result', 'response']) {
+        if (json.containsKey(key)) {
+          final value = json[key];
+          if (value is String && value.length > 50) return value;
+          if (value is Map || value is List) {
+            final result = _extractScriptFromJson(value);
+            if (result.isNotEmpty) return result;
+          }
+        }
+      }
+      // Generic: search all values
+      for (final value in json.values) {
+        if (value is String && value.length > 100) return value;
+        if (value is Map || value is List) {
+          final result = _extractScriptFromJson(value);
+          if (result.isNotEmpty) return result;
+        }
+      }
+    }
+    return '';
+  }
+
+  /// Normalize plugin URLs to handle common patterns.
+  ///
+  /// Converts GitHub blob URLs to raw content URLs so users can paste either
+  /// format and it will work:
+  /// - `https://github.com/{owner}/{repo}/blob/{branch}/{path}`
+  /// - `https://github.com/{owner}/{repo}/raw/{branch}/{path}`
+  ///
+  /// Also handles Gitee blob URLs similarly.
+  String _normalizePluginUrl(String url) {
+    // Convert GitHub blob URLs to raw content URLs
+    // https://github.com/{owner}/{repo}/blob/{branch}/{path}
+    // → https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}
+    final githubBlobPattern = RegExp(
+      r'^https?://github\.com/([^/]+/[^/]+)/blob/([^?#]+)',
+    );
+    final blobMatch = githubBlobPattern.firstMatch(url);
+    if (blobMatch != null) {
+      final repoPath = blobMatch.group(1);
+      final branchAndPath = blobMatch.group(2);
+      return 'https://raw.githubusercontent.com/$repoPath/$branchAndPath';
+    }
+
+    return url;
   }
 
   void _validatePluginCode(String code, String type) {
@@ -120,8 +266,16 @@ class PluginService {
         throw Exception('澜音插件格式校验失败：代码中未找到cerumusic关键字');
       }
     } else if (type == 'lx') {
-      if (!code.toLowerCase().contains('lx')) {
-        throw Exception('洛雪插件格式校验失败：代码中未找到lx关键字');
+      // LX plugins typically contain lx-related identifiers.
+      // Check multiple common patterns to be more lenient.
+      final lowerCode = code.toLowerCase();
+      final hasLxKeyword = lowerCode.contains('lx');
+      final hasModuleExports = lowerCode.contains('module.exports');
+      final hasLxComment = RegExp(r'/\*[\s\S]*@name[\s\S]*\*/').hasMatch(code);
+      if (!hasLxKeyword && !hasModuleExports && !hasLxComment) {
+        throw Exception(
+          '洛雪插件格式校验失败：代码中未找到lx关键字或module.exports',
+        );
       }
     }
   }
@@ -131,6 +285,7 @@ class PluginService {
     String pluginName,
     String type, {
     String? originalPluginCode,
+    String? sourceUrl,
   }) async {
     final engine = JsEngineService();
     await engine.init();
@@ -180,6 +335,7 @@ class PluginService {
         supportedSources: sources,
         filePath: destPath,
         isEnabled: plugins.isEmpty,
+        updateUrl: pluginInfo.homepage ?? sourceUrl,
       );
 
       plugins.add(plugin);

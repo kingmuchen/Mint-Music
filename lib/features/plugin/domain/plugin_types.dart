@@ -35,12 +35,14 @@ class PluginMetadata {
   final String version;
   final String author;
   final String? description;
+  final String? homepage;
 
   const PluginMetadata({
     required this.name,
     required this.version,
     required this.author,
     this.description,
+    this.homepage,
   });
 
   factory PluginMetadata.fromJson(Map<String, dynamic> json) {
@@ -49,6 +51,7 @@ class PluginMetadata {
       version: json['version'] as String,
       author: json['author'] as String,
       description: json['description'] as String?,
+      homepage: json['homepage'] as String?,
     );
   }
 
@@ -57,6 +60,7 @@ class PluginMetadata {
     'version': version,
     'author': author,
     'description': description,
+    if (homepage != null) 'homepage': homepage,
   };
 }
 

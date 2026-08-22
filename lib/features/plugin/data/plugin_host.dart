@@ -218,11 +218,11 @@ JSON.stringify((function() {
 
   PluginMetadata? _parsePluginInfo(dynamic data) {
     if (data == null) return null;
-    if (data is! Map<String, dynamic>) return null;
+    if (data is! Map) return null;
 
-    final name = data['name'] as String?;
-    final version = data['version'] as String?;
-    final author = data['author'] as String?;
+    final name = _safeString(data['name']);
+    final version = _safeString(data['version']);
+    final author = _safeString(data['author']);
 
     if (name == null || version == null || author == null) return null;
 
@@ -230,8 +230,25 @@ JSON.stringify((function() {
       name: name,
       version: version,
       author: author,
-      description: data['description'] as String?,
+      description: _safeString(data['description']),
+      homepage: _safeString(data['homepage']),
     );
+  }
+
+  /// Safely convert a dynamic value to String, handling Lists and other
+  /// non-String types that LX scripts may export.
+  static String? _safeString(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    if (value is List) {
+      // Some LX scripts export arrays — join non-null elements
+      final parts = value
+          .where((e) => e != null && e.toString().isNotEmpty)
+          .map((e) => e.toString())
+          .toList();
+      return parts.isEmpty ? null : parts.join(', ');
+    }
+    return value.toString();
   }
 
   Map<String, dynamic> _parseSourcesWithActions(dynamic data) {
@@ -240,26 +257,35 @@ JSON.stringify((function() {
 
     if (data == null) return {'sources': sources, 'actions': actions};
 
-    if (data is Map<String, dynamic>) {
+    if (data is Map) {
       data.forEach((key, value) {
-        if (value is Map<String, dynamic>) {
-          final name = value['name'] as String? ?? SourceInfo.getNameById(key);
-          final qualitys =
-              (value['qualitys'] as List?)?.cast<String>() ??
-              (value['qualities'] as List?)?.cast<String>() ??
+        if (value is Map) {
+          final name = _safeString(value['name']) ??
+              SourceInfo.getNameById(key as String);
+          final qualitys = _safeStringList(value['qualitys']) ??
+              _safeStringList(value['qualities']) ??
               [];
           final sourceActions =
-              ((value['actions'] as List?) ?? const ['musicUrl'])
-                  .map((e) => e.toString().toLowerCase())
+              (_safeStringList(value['actions']) ?? const ['musicUrl'])
+                  .map((e) => e.toLowerCase())
                   .toList();
 
           sources.add(PluginSourceInfo(name: name, qualities: qualitys));
-          actions[key] = sourceActions;
+          actions[key.toString()] = sourceActions;
         }
       });
     }
 
     return {'sources': sources, 'actions': actions};
+  }
+
+  /// Safely convert a dynamic value to List<String>.
+  static List<String>? _safeStringList(dynamic value) {
+    if (value == null) return null;
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return null;
   }
 
   bool supportsSearch(String sourceId) {
