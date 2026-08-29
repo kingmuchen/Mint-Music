@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/responsive_layout.dart';
 import '../../../shared/widgets/music_cover_image.dart';
 import '../application/playback_controller.dart';
 import '../domain/models/song.dart';
@@ -29,16 +30,25 @@ class MiniPlayer extends ConsumerWidget {
     // 迷你播放器是固定 56px 的紧凑布局，系统大字体/大显示设置会把两行
     // 文字撑高导致 RenderFlex 溢出（底部出现红/黄条纹与红色报错）。
     // 限制文本缩放上限，保证任意字体设置下布局都不会被撑破。
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final height = isTablet ? 64.0 : 56.0;
+    final artSize = isTablet ? 52.0 : 44.0;
+    final artRadius = artSize / 2;
+    final titleFontSize = isTablet ? 14.0 : 13.0;
+    final subtitleFontSize = isTablet ? 12.0 : 11.0;
+    final iconSize = isTablet ? 22.0 : 20.0;
+    final playIconSize = isTablet ? 26.0 : 24.0;
+
     return MediaQuery.withClampedTextScaling(
       maxScaleFactor: 1.2,
       child: GestureDetector(
         onTap: () => context.push('/player/full'),
         child: Container(
-          height: 56,
-          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          height: height,
+          margin: EdgeInsets.symmetric(horizontal: isTablet ? 12 : AppSpacing.sm),
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(height / 2),
             boxShadow: [
               BoxShadow(
                 color: colors.shadow,
@@ -51,10 +61,10 @@ class MiniPlayer extends ConsumerWidget {
             children: [
               const SizedBox(width: AppSpacing.xs),
               ClipRRect(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(artRadius),
                 child: Container(
-                  width: 44,
-                  height: 44,
+                  width: artSize,
+                  height: artSize,
                   decoration: BoxDecoration(color: colors.surfaceVariant),
                   child: _buildCover(colors, song),
                 ),
@@ -68,7 +78,7 @@ class MiniPlayer extends ConsumerWidget {
                     Text(
                       song.title,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: titleFontSize,
                         fontWeight: FontWeight.w500,
                         color: colors.textPrimary,
                       ),
@@ -78,7 +88,7 @@ class MiniPlayer extends ConsumerWidget {
                     const SizedBox(height: 1),
                     Text(
                       song.artist,
-                      style: TextStyle(fontSize: 11, color: colors.textHint),
+                      style: TextStyle(fontSize: subtitleFontSize, color: colors.textHint),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -88,7 +98,7 @@ class MiniPlayer extends ConsumerWidget {
               IconButton(
                 icon: Icon(
                   Icons.skip_previous,
-                  size: 20,
+                  size: iconSize,
                   color: colors.textSecondary,
                 ),
                 onPressed: () => controller.previous(),
@@ -96,8 +106,8 @@ class MiniPlayer extends ConsumerWidget {
               IconButton(
                 icon: isLoading
                     ? SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: iconSize,
+                        height: iconSize,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: colors.textPrimary,
@@ -105,7 +115,7 @@ class MiniPlayer extends ConsumerWidget {
                       )
                     : Icon(
                         isPlaying ? Icons.pause : Icons.play_arrow,
-                        size: 24,
+                        size: playIconSize,
                         color: colors.textPrimary,
                       ),
                 // 遵循 CeruMusic/Sollin-Music：加载期间禁用按钮，
@@ -115,7 +125,7 @@ class MiniPlayer extends ConsumerWidget {
               IconButton(
                 icon: Icon(
                   Icons.skip_next,
-                  size: 20,
+                  size: iconSize,
                   color: colors.textSecondary,
                 ),
                 onPressed: () => controller.next(),
@@ -129,6 +139,15 @@ class MiniPlayer extends ConsumerWidget {
   }
 
   Widget _buildCover(ThemeColors colors, Song song) {
+    // 优先使用 coverUrl（精准匹配后的在线封面），再回退到设备本地封面
+    if (song.coverUrl != null && song.coverUrl!.isNotEmpty) {
+      return MusicCoverImage(
+        key: ValueKey('mp_cover_img_${song.id}'),
+        url: song.coverUrl,
+        fit: BoxFit.cover,
+        errorWidget: Icon(Icons.music_note, size: 20, color: colors.primary),
+      );
+    }
     if (song.mediaStoreId != null) {
       return QueryArtworkWidget(
         // 用 song.id 做 key：唯一标识歌曲，播放/暂停等状态变更时
@@ -143,14 +162,6 @@ class MiniPlayer extends ConsumerWidget {
           size: 20,
           color: colors.primary,
         ),
-      );
-    }
-    if (song.coverUrl != null && song.coverUrl!.isNotEmpty) {
-      return MusicCoverImage(
-        key: ValueKey('mp_cover_img_${song.id}'),
-        url: song.coverUrl,
-        fit: BoxFit.cover,
-        errorWidget: Icon(Icons.music_note, size: 20, color: colors.primary),
       );
     }
     return Icon(Icons.music_note, size: 20, color: colors.primary);

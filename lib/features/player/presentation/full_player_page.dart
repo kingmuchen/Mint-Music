@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive_layout.dart';
 import '../../../shared/widgets/music_cover_image.dart';
 import '../application/playback_controller.dart';
 import '../application/lyric_controller.dart';
@@ -31,6 +32,9 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
   int _currentPage = 0;
   bool _lyricsRequested = false;
   bool _lyricsPageBuilt = false;
+
+  /// Tablet landscape: when true, lyrics occupy the full area (cover hidden).
+  bool _tabletLyricsFullMode = false;
 
   /// 退出动画期间隐藏 AMLL WebView：滑动阶段平台视图不参与合成，
   /// 中低端手机上也能流畅滑动（平台视图随路由变换会导致严重掉帧/闪回）。
@@ -139,80 +143,206 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
               ),
             ),
             SafeArea(
-              child: Column(
-                children: [
-                  _PlayerHeader(
-                    currentPage: _currentPage,
-                    onBack: () => _beginExit(),
-                    onTogglePage: () {
-                      final next = _currentPage == 0 ? 1 : 0;
-                      if (next == 1) _activateLyricsPage();
-                      _pageController.jumpToPage(next);
-                    },
-                  ),
-                  Expanded(
-                    child: ListenableBuilder(
-                      listenable: AmllToggleService(),
-                      builder: (context, _) {
-                        final amllEnabled = AmllToggleService().enabled;
-                        return PageView.builder(
-                          controller: _pageController,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: 2,
-                          onPageChanged: (index) {
-                            if (mounted) {
-                              setState(() => _currentPage = index);
-                            }
-                            if (index == 1) _activateLyricsPage();
-                          },
-                          itemBuilder: (context, index) {
-                            if (index == 0) {
-                              return _KeepAlivePage(
-                                child: _PlayerCoverPage(
-                                  isPlaying: isPlaying,
-                                  onTapCover: () {
-                                    if (_currentPage == 0) {
-                                      _activateLyricsPage();
-                                      _pageController.jumpToPage(1);
-                                    }
-                                  },
-                                ),
-                              );
-                            }
-                            if (!_lyricsPageBuilt)
-                              return const SizedBox.expand();
-                            return _KeepAlivePage(
-                              child: _PlayerLyricsPage(
-                                amllKey: _amllKey,
-                                hideWebView: _isLeaving,
-                              ),
+              child: Builder(
+                builder: (context) {
+                  final isTabletLandscape = ResponsiveLayout.isTabletLandscape(context);
+                  if (isTabletLandscape) {
+                    // Tablet landscape: side-by-side cover + lyrics layout
+                    return _buildTabletLandscapeLayout(
+                      isPlaying: isPlaying,
+                      audioVisualizer: audioVisualizer,
+                    );
+                  }
+                  // Phone / tablet portrait: vertical layout with PageView
+                  return Column(
+                    children: [
+                      _PlayerHeader(
+                        currentPage: _currentPage,
+                        onBack: () => _beginExit(),
+                        onTogglePage: () {
+                          final next = _currentPage == 0 ? 1 : 0;
+                          if (next == 1) _activateLyricsPage();
+                          _pageController.jumpToPage(next);
+                        },
+                      ),
+                      Expanded(
+                        child: ListenableBuilder(
+                          listenable: AmllToggleService(),
+                          builder: (context, _) {
+                            final amllEnabled = AmllToggleService().enabled;
+                            return PageView.builder(
+                              controller: _pageController,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: 2,
+                              onPageChanged: (index) {
+                                if (mounted) {
+                                  setState(() => _currentPage = index);
+                                }
+                                if (index == 1) _activateLyricsPage();
+                              },
+                              itemBuilder: (context, index) {
+                                if (index == 0) {
+                                  return _KeepAlivePage(
+                                    child: _PlayerCoverPage(
+                                      isPlaying: isPlaying,
+                                      onTapCover: () {
+                                        if (_currentPage == 0) {
+                                          _activateLyricsPage();
+                                          _pageController.jumpToPage(1);
+                                        }
+                                      },
+                                    ),
+                                  );
+                                }
+                                if (!_lyricsPageBuilt)
+                                  return const SizedBox.expand();
+                                return _KeepAlivePage(
+                                  child: _PlayerLyricsPage(
+                                    amllKey: _amllKey,
+                                    hideWebView: _isLeaving,
+                                  ),
+                                );
+                              },
                             );
                           },
-                        );
-                      },
-                    ),
-                  ),
-                  _PlayerSongInfo(),
-                  _PlayerProgressBar(),
-                  const SizedBox(height: 12),
-                  _PlayerControls(
-                    onQueue: () {
-                      final playbackState = ref.read(
-                        playbackControllerProvider,
-                      );
-                      final controller = ref.read(
-                        playbackControllerProvider.notifier,
-                      );
-                      _showPlayQueue(playbackState, controller);
-                    },
-                  ),
-                  SizedBox(height: 16),
-                ],
+                        ),
+                      ),
+                      _PlayerSongInfo(),
+                      _PlayerProgressBar(),
+                      const SizedBox(height: 12),
+                      _PlayerControls(
+                        onQueue: () {
+                          final playbackState = ref.read(
+                            playbackControllerProvider,
+                          );
+                          final controller = ref.read(
+                            playbackControllerProvider.notifier,
+                          );
+                          _showPlayQueue(playbackState, controller);
+                        },
+                      ),
+                      SizedBox(height: 16),
+                    ],
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Tablet landscape layout with two modes:
+  ///
+  /// Split mode (_tabletLyricsFullMode == false):
+  /// ┌─────────────────────────────────────────────┐
+  /// │  ⬇ 返回          播放模式          🎵 歌词  │
+  /// ├──────────────┬──────────────────────────────┤
+  /// │   封面图片    │                              │
+  /// │   歌曲信息    │         歌词显示区域          │
+  /// │   进度条      │                              │
+  /// │   播放控制    │                              │
+  /// └──────────────┴──────────────────────────────┘
+  ///
+  /// Full-lyrics mode (_tabletLyricsFullMode == true):
+  /// ┌─────────────────────────────────────────────┐
+  /// │  ⬇ 返回          播放模式          🖼 封面  │
+  /// │                                             │
+  /// │            歌词显示区域 (全屏)               │
+  /// │                                             │
+  /// └─────────────────────────────────────────────┘
+  Widget _buildTabletLandscapeLayout({
+    required bool isPlaying,
+    required bool audioVisualizer,
+  }) {
+    return Column(
+      children: [
+        // Full-width header: back (left) — play mode (center) — toggle (right)
+        _PlayerHeader(
+          currentPage: _tabletLyricsFullMode ? 1 : 0,
+          onBack: () => _beginExit(),
+          onTogglePage: () {
+            setState(() => _tabletLyricsFullMode = !_tabletLyricsFullMode);
+          },
+        ),
+        // Main content
+        Expanded(
+          child: _tabletLyricsFullMode
+              ? _buildTabletFullLyricsMode(isPlaying: isPlaying)
+              : _buildTabletSplitMode(isPlaying: isPlaying),
+        ),
+      ],
+    );
+  }
+
+  /// Split mode: cover on left (centered/upper), controls at bottom,
+  /// lyrics on right. Layout inspired by CeruMusic's side-by-side player.
+  Widget _buildTabletSplitMode({required bool isPlaying}) {
+    return Row(
+      children: [
+        // Left side: cover (centered) + controls (bottom)
+        Expanded(
+          flex: 4,
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              // Cover takes up available space, centered vertically
+              Expanded(
+                child: _PlayerCoverPage(
+                  isPlaying: isPlaying,
+                  onTapCover: null,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Controls pinned to bottom
+              _PlayerSongInfo(),
+              _PlayerProgressBar(),
+              const SizedBox(height: 8),
+              _PlayerControls(
+                onQueue: () {
+                  final playbackState = ref.read(
+                    playbackControllerProvider,
+                  );
+                  final controller = ref.read(
+                    playbackControllerProvider.notifier,
+                  );
+                  _showPlayQueue(playbackState, controller);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+        // Right side: lyrics (full height)
+        Expanded(
+          flex: 6,
+          child: _buildTabletLyricsPanel(),
+        ),
+      ],
+    );
+  }
+
+  /// Full-lyrics mode: lyrics occupy the entire area.
+  Widget _buildTabletFullLyricsMode({required bool isPlaying}) {
+    return _buildTabletLyricsPanel();
+  }
+
+  /// Shared lyrics panel builder.
+  Widget _buildTabletLyricsPanel() {
+    return ListenableBuilder(
+      listenable: AmllToggleService(),
+      builder: (context, _) {
+        if (!_lyricsPageBuilt) {
+          _activateLyricsPage();
+        }
+        return _KeepAlivePage(
+          child: _PlayerLyricsPage(
+            amllKey: _amllKey,
+            hideWebView: _isLeaving,
+          ),
+        );
+      },
     );
   }
 
@@ -466,6 +596,8 @@ class _PlayerCoverPage extends ConsumerWidget {
     final dominantColor = coverColorAsync.whenOrNull(
       data: (result) => result?.dominantColor,
     );
+    final coverSize = ResponsiveLayout.albumArtSize(context);
+    final borderRadius = ResponsiveLayout.isTablet(context) ? 28.0 : 24.0;
 
     return Center(
       child: GestureDetector(
@@ -475,10 +607,10 @@ class _PlayerCoverPage extends ConsumerWidget {
           scale: isPlaying ? 1.0 : 0.95,
           curve: Curves.easeOutCubic,
           child: Container(
-            width: 288,
-            height: 288,
+            width: coverSize,
+            height: coverSize,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(borderRadius),
               boxShadow: [
                 BoxShadow(
                   color:
@@ -518,16 +650,7 @@ class _PlayerCoverPage extends ConsumerWidget {
         child: const Icon(Icons.music_note, size: 60, color: Colors.white24),
       );
     }
-    if (song.mediaStoreId != null) {
-      return QueryArtworkWidget(
-        key: ValueKey(song.mediaStoreId),
-        id: song.mediaStoreId!,
-        type: ArtworkType.AUDIO,
-        keepOldArtwork: true,
-        artworkFit: BoxFit.cover,
-        nullArtworkWidget: _fallbackCover(song),
-      );
-    }
+    // 优先使用 coverUrl（精准匹配后的在线封面），再回退到设备本地封面
     if (song.coverUrl != null && song.coverUrl!.isNotEmpty) {
       return MusicCoverImage(
         url: song.coverUrl,
@@ -536,6 +659,16 @@ class _PlayerCoverPage extends ConsumerWidget {
         cacheHeight: 1536,
         filterQuality: FilterQuality.high,
         errorWidget: _fallbackCover(song),
+      );
+    }
+    if (song.mediaStoreId != null) {
+      return QueryArtworkWidget(
+        key: ValueKey(song.mediaStoreId),
+        id: song.mediaStoreId!,
+        type: ArtworkType.AUDIO,
+        keepOldArtwork: true,
+        artworkFit: BoxFit.cover,
+        nullArtworkWidget: _fallbackCover(song),
       );
     }
     return _fallbackCover(song);
@@ -649,12 +782,8 @@ class _PlayerLyricsPage extends ConsumerWidget {
             RepaintBoundary(
               child: TickerMode(
                 enabled: !hideWebView,
-                child: Visibility(
-                  // 退出动画期间隐藏 WebView（Offstage，不参与绘制/合成），
-                  // 滑动阶段平台视图不在变换子树中，中低端手机也不会掉帧闪回。
-                  visible: !hideWebView,
-                  maintainState: true,
-                  maintainAnimation: true,
+                child: Offstage(
+                  offstage: hideWebView,
                   child: AmllLyricPlayer(
                     key: amllKey,
                     lines: lyricState.lines,
