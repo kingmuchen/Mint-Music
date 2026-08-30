@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/responsive_layout.dart';
 import '../../../shared/widgets/music_cover_image.dart';
 import '../application/discover_providers.dart';
 import '../domain/models/playlist.dart';
@@ -136,9 +137,10 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   }
 
   Widget _buildHeader(BuildContext context, ThemeColors colors) {
+    final isTablet = ResponsiveLayout.isTablet(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveLayout.horizontalPadding(context),
         vertical: AppSpacing.md,
       ),
       child: Row(
@@ -146,7 +148,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
           Text(
             '发现音乐',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: isTablet ? 26 : 22,
               fontWeight: FontWeight.bold,
               color: colors.textPrimary,
             ),
@@ -156,7 +158,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             onTap: () => context.push('/recognize'),
             child: Icon(
               Icons.mic_rounded,
-              size: 22,
+              size: isTablet ? 26 : 22,
               color: colors.textSecondary,
             ),
           ),
@@ -166,30 +168,36 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   }
 
   Widget _buildSearchBar(BuildContext context, ThemeColors colors) {
+    final isTablet = ResponsiveLayout.isTablet(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: GestureDetector(
-        onTap: () => context.push('/search'),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(AppRadius.full),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.search, size: 18, color: colors.textHint),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  '搜索音乐、歌手...',
-                  style: TextStyle(color: colors.textHint, fontSize: 14),
-                ),
+      padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isTablet ? 480 : double.infinity),
+          child: GestureDetector(
+            onTap: () => context.push('/search'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
               ),
-            ],
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.full),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search, size: 18, color: colors.textHint),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      '搜索音乐、歌手...',
+                      style: TextStyle(color: colors.textHint, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -760,24 +768,26 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
 
   Widget _buildPlaylistGrid(ThemeColors colors, List<Playlist> playlists) {
     final notifier = ref.read(categoryPlaylistsProvider.notifier);
+    final crossAxisCount = ResponsiveLayout.gridCrossAxisCount(context);
+    final isTablet = ResponsiveLayout.isTablet(context);
 
     return CustomScrollView(
       controller: _scrollController,
       cacheExtent: 360,
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.only(
-            left: AppSpacing.lg,
-            right: AppSpacing.lg,
+          padding: EdgeInsets.only(
+            left: ResponsiveLayout.horizontalPadding(context),
+            right: ResponsiveLayout.horizontalPadding(context),
             top: 0,
             bottom: AppSpacing.xxxl,
           ),
           sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: AppSpacing.md,
-              crossAxisSpacing: AppSpacing.md,
-              childAspectRatio: 0.82,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: isTablet ? 16 : AppSpacing.md,
+              crossAxisSpacing: isTablet ? 16 : AppSpacing.md,
+              childAspectRatio: isTablet ? 0.88 : 0.82,
             ),
             delegate: SliverChildBuilderDelegate((context, index) {
               final playlist = playlists[index];
@@ -957,20 +967,23 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     ThemeColors colors,
     List<Leaderboard> leaderboards,
   ) {
+    final crossAxisCount = ResponsiveLayout.gridCrossAxisCount(context);
+    final isTablet = ResponsiveLayout.isTablet(context);
+
     return GridView.builder(
-      padding: const EdgeInsets.only(
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
+      padding: EdgeInsets.only(
+        left: ResponsiveLayout.horizontalPadding(context),
+        right: ResponsiveLayout.horizontalPadding(context),
         bottom: AppSpacing.xxxl,
       ),
       cacheExtent: 360,
       addAutomaticKeepAlives: false,
       addRepaintBoundaries: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: AppSpacing.md,
-        crossAxisSpacing: AppSpacing.md,
-        childAspectRatio: 0.82,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: isTablet ? 16 : AppSpacing.md,
+        crossAxisSpacing: isTablet ? 16 : AppSpacing.md,
+        childAspectRatio: isTablet ? 0.88 : 0.82,
       ),
       itemCount: leaderboards.length,
       itemBuilder: (context, index) {

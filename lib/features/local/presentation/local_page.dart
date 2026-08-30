@@ -684,10 +684,34 @@ class _LocalPageState extends ConsumerState<LocalPage> {
     _doBatchMatch(colors, songs, index + 1, matched);
   }
 
+  /// 搜索源显示名称
+  static const Map<String, String> _sourceDisplayNames = {
+    'wy': '网易云',
+    'kg': '酷狗',
+    'kw': '酷我',
+    'tx': 'QQ',
+    'mg': '咪咕',
+  };
+
+  /// 聚合五大平台搜索，每源最多取 2 条，总计最多 10 条
   Future<List<Song>> _searchOnlineForMatch(String keyword) async {
     try {
-      final source = ref.read(musicSourceProvider);
-      return await source.search(keyword, limit: 5);
+      final manager = ref.read(musicSourceManagerProvider);
+      final aggregated = await manager.aggregateSearch(
+        keyword,
+        sourceIds: const ['wy', 'kg', 'tx', 'kw', 'mg'],
+        limit: 5,
+      );
+      // 每源最多取 2 条，确保结果均衡
+      final perSourceLimit = 2;
+      final all = <Song>[];
+      for (final entry in aggregated.entries) {
+        final sourceSongs = entry.value.take(perSourceLimit).toList();
+        for (final song in sourceSongs) {
+          all.add(song.copyWith(source: entry.key));
+        }
+      }
+      return all.take(10).toList();
     } catch (_) {
       return [];
     }
@@ -818,11 +842,30 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    '${candidate.artist} · ${candidate.album}',
-                    style: TextStyle(fontSize: 12, color: colors.textHint),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      if (candidate.source != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            color: colors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _sourceDisplayNames[candidate.source] ?? candidate.source!,
+                            style: TextStyle(fontSize: 10, color: colors.primary, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(
+                          '${candidate.artist} · ${candidate.album}',
+                          style: TextStyle(fontSize: 12, color: colors.textHint),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1311,8 +1354,8 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
 
   Future<void> _fetchLyric() async {
     try {
-      final source = ref.read(musicSourceProvider);
-      final lyric = await source.getLyric(widget.candidate.id);
+      final manager = ref.read(musicSourceManagerProvider);
+      final lyric = await manager.getLyric(widget.candidate);
       if (mounted) {
         setState(() {
           _lyric = lyric;

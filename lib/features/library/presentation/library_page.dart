@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/responsive_layout.dart';
 import '../../../shared/widgets/music_cover_image.dart';
 import '../application/playlist_providers.dart';
 import '../../player/application/playback_controller.dart';
@@ -51,9 +52,10 @@ class LibraryPage extends ConsumerWidget {
   }
 
   Widget _buildHeader(BuildContext context, ThemeColors colors) {
+    final isTablet = ResponsiveLayout.isTablet(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveLayout.horizontalPadding(context),
         vertical: AppSpacing.md,
       ),
       child: Row(
@@ -61,7 +63,7 @@ class LibraryPage extends ConsumerWidget {
           Text(
             '我的歌单',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: isTablet ? 26 : 22,
               fontWeight: FontWeight.bold,
               color: colors.textPrimary,
             ),
@@ -69,7 +71,7 @@ class LibraryPage extends ConsumerWidget {
           const Spacer(),
           GestureDetector(
             onTap: () => context.push('/recently-played'),
-            child: Icon(Icons.history, size: 22, color: colors.textSecondary),
+            child: Icon(Icons.history, size: isTablet ? 26 : 22, color: colors.textSecondary),
           ),
         ],
       ),
@@ -82,7 +84,7 @@ class LibraryPage extends ConsumerWidget {
     WidgetRef ref,
   ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
       child: Row(
         children: [
           GestureDetector(
@@ -182,20 +184,23 @@ class LibraryPage extends ConsumerWidget {
     List<local_playlist.Playlist> playlists,
     WidgetRef ref,
   ) {
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final crossAxisCount = ResponsiveLayout.gridCrossAxisCount(context);
+
     return GridView.builder(
       // AppShell 将迷你播放器叠放在页面内容之上。为列表底部预留空间，
       // 使最后一行歌单能够完整滚动到播放器上方。
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
+      padding: EdgeInsets.fromLTRB(
+        ResponsiveLayout.horizontalPadding(context),
         0,
-        AppSpacing.lg,
+        ResponsiveLayout.horizontalPadding(context),
         AppSpacing.miniPlayerHeight + AppSpacing.lg,
       ),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.8,
-        crossAxisSpacing: AppSpacing.md,
-        mainAxisSpacing: AppSpacing.md,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: isTablet ? 0.85 : 0.8,
+        crossAxisSpacing: isTablet ? 16 : AppSpacing.md,
+        mainAxisSpacing: isTablet ? 16 : AppSpacing.md,
       ),
       itemCount: playlists.length,
       addAutomaticKeepAlives: false,

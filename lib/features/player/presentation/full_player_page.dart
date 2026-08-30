@@ -239,9 +239,10 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
   /// ┌─────────────────────────────────────────────┐
   /// │  ⬇ 返回          播放模式          🎵 歌词  │
   /// ├──────────────┬──────────────────────────────┤
-  /// │   封面图片    │                              │
-  /// │   歌曲信息    │         歌词显示区域          │
-  /// │   进度条      │                              │
+  /// │              │                              │
+  /// │   封面图片    │         歌词显示区域          │
+  /// │   歌曲信息    │                              │
+  /// │   进度条      │         (50% / 50%)          │
   /// │   播放控制    │                              │
   /// └──────────────┴──────────────────────────────┘
   ///
@@ -283,7 +284,7 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
       children: [
         // Left side: cover (centered) + controls (bottom)
         Expanded(
-          flex: 4,
+          flex: 5,
           child: Column(
             children: [
               const SizedBox(height: 16),
@@ -316,7 +317,7 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
         ),
         // Right side: lyrics (full height)
         Expanded(
-          flex: 6,
+          flex: 5,
           child: _buildTabletLyricsPanel(),
         ),
       ],
@@ -334,7 +335,11 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
       listenable: AmllToggleService(),
       builder: (context, _) {
         if (!_lyricsPageBuilt) {
-          _activateLyricsPage();
+          // Defer setState to after the current build frame to avoid
+          // "setState() called during build" error.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _activateLyricsPage();
+          });
         }
         return _KeepAlivePage(
           child: _PlayerLyricsPage(

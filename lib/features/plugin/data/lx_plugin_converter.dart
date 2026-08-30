@@ -319,7 +319,13 @@ function __lxRequest(url, options, callback) {
     if (normalizedEvent === 'updatealert' || normalizedEvent === 'update') {
       if (!__lxUpdateAlertSent) {
         __lxUpdateAlertSent = true;
-        try { cerumusic.NoticeCenter('update', data); } catch(e) {}
+        try {
+          console.log('[LX Adapter] updateAlert received, data type=' + typeof data + ', data=' + JSON.stringify(data));
+          cerumusic.NoticeCenter('update', data);
+          console.log('[LX Adapter] updateAlert NoticeCenter sent successfully');
+        } catch(e) {
+          console.log('[LX Adapter] updateAlert error: ' + e);
+        }
       }
       return Promise.resolve();
     }

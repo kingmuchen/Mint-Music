@@ -9,6 +9,10 @@ import 'package:dio/io.dart';
 import 'package:flutter_js/flutter_js.dart';
 import 'package:pointycastle/export.dart' as pc;
 
+/// Data emitted when a plugin sends a `pluginNotice` with type `update`
+/// (i.e. the plugin itself detected an available update via
+/// `lx.send('updateAlert', ...)`).
+
 class JsEngineService {
   JavascriptRuntime? _runtime;
   late final Dio _dio;
@@ -391,8 +395,13 @@ var cerumusic = {
   },
   NoticeCenter: function(type, data) {
     try {
-      sendMessage('pluginNotice', JSON.stringify({ type: type, data: data }));
-    } catch(e) {}
+      var payload = JSON.stringify({ type: type, data: data });
+      console.log('[CeruMusic] NoticeCenter type=' + type + ', payload_len=' + payload.length);
+      sendMessage('pluginNotice', payload);
+      console.log('[CeruMusic] NoticeCenter sendMessage done');
+    } catch(e) {
+      console.log('[CeruMusic] NoticeCenter error: ' + e);
+    }
   }
 };
 
@@ -1192,10 +1201,25 @@ function __zlibRequest(action, data) {
         .replaceAll('\$', '\\\$');
   }
 
+  /// Broadcast stream of plugin notices (e.g. update alerts).
+  final _pluginNoticeController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Stream of plugin notices emitted by loaded plugins.
+  Stream<Map<String, dynamic>> get pluginNoticeStream =>
+      _pluginNoticeController.stream;
+
   void _handlePluginNotice(dynamic args) {
     try {
       final data = _parseArgs(args);
-      print('[PluginNotice] ${data['type']}: ${data['data']}');
+      final type = data['type']?.toString() ?? '';
+      final noticeData = data['data'];
+      print('[PluginNotice] type=$type, data=$noticeData');
+      // Propagate update notices so the UI layer can react.
+      if (type == 'update' && noticeData != null) {
+        print('[PluginNotice] Emitting update notice to stream');
+        _pluginNoticeController.add(data);
+      }
     } catch (e) {
       print('[JsEngine] Error handling plugin notice: $e');
     }
@@ -1433,6 +1457,7 @@ try {
     }
     _timers.clear();
     _activeTimerIds.clear();
+    _pluginNoticeController.close();
     _runtime?.dispose();
     _runtime = null;
     _initialized = false;

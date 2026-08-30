@@ -19,6 +19,11 @@ final pluginsProvider =
 final pluginUpdateResultsProvider =
     StateProvider<List<PluginUpdateResult>>((ref) => []);
 
+/// Holds plugin-initiated update notices (from `lx.send('updateAlert', ...)`).
+/// Each entry contains: pluginName, pluginVersion, pluginId, data (with log and updateUrl).
+final pluginScriptUpdateNoticesProvider =
+    StateProvider<List<Map<String, dynamic>>>((ref) => []);
+
 class PluginsNotifier extends AsyncNotifier<List<PluginInfo>> {
   @override
   Future<List<PluginInfo>> build() async {

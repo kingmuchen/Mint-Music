@@ -230,6 +230,34 @@ class PluginRepository {
     }
   }
 
+  /// Normalize a URL that may be a GitHub/Gitee blob page URL to a raw
+  /// content URL, so that the response contains JS code instead of HTML.
+  String _normalizeUpdateUrl(String url) {
+    // GitHub blob → raw
+    final githubBlobPattern = RegExp(
+      r'^https?://github\.com/([^/]+/[^/]+)/blob/([^?#]+)',
+    );
+    final githubMatch = githubBlobPattern.firstMatch(url);
+    if (githubMatch != null) {
+      final repoPath = githubMatch.group(1);
+      final branchAndPath = githubMatch.group(2);
+      return 'https://raw.githubusercontent.com/$repoPath/$branchAndPath';
+    }
+
+    // GitHub repo page → try fetching latest release JS
+    // e.g. https://github.com/owner/repo → look for a .js file in repo
+    final githubRepoPattern = RegExp(
+      r'^https?://github\.com/([^/]+/[^/]+)/?$'
+    );
+    final repoMatch = githubRepoPattern.firstMatch(url);
+    if (repoMatch != null) {
+      // Can't reliably determine the JS file path from just the repo URL.
+      // Return as-is and let the caller handle the failure gracefully.
+    }
+
+    return url;
+  }
+
   /// Check if a plugin has an update available by fetching its updateUrl
   /// and comparing the version number.
   Future<PluginUpdateResult> checkPluginUpdate(PluginInfo plugin) async {
@@ -237,13 +265,21 @@ class PluginRepository {
       return PluginUpdateResult(plugin: plugin, available: false);
     }
 
+    final url = _normalizeUpdateUrl(plugin.updateUrl!);
+
     try {
       final response = await _dio.get(
-        plugin.updateUrl!,
+        url,
         options: Options(
           responseType: ResponseType.plain,
-          headers: {'User-Agent': 'MintMusic/1.0'},
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
           receiveTimeout: const Duration(seconds: 15),
+          followRedirects: true,
+          maxRedirects: 5,
         ),
       );
 

@@ -19,6 +19,14 @@ class PluginHost {
   List<PluginSourceInfo> get sources => _sources;
   Map<String, List<String>> get sourceActions => _sourceActions;
 
+  /// Stream of update notices emitted by this plugin's JS engine.
+  /// Each event is the raw notice map from the engine (with `type` and `data`).
+  Stream<Map<String, dynamic>> get updateNotices =>
+      _engine.pluginNoticeStream.where((e) => e['type'] == 'update');
+
+  /// Convenience getter for the engine's raw notice stream.
+  JsEngineService get engine => _engine;
+
   Future<void> loadPlugin(
     String pluginCode, {
     String? originalPluginCode,

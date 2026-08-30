@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_provider.dart';
 import '../core/router/app_router.dart';
+import '../core/utils/responsive_layout.dart';
 import '../features/plugin/application/plugin_providers.dart';
 import '../features/settings/application/plugin_providers.dart';
 import '../features/settings/data/plugin_repository.dart';
@@ -49,11 +50,21 @@ class _AppState extends ConsumerState<App> {
       themeMode: themeMode,
       routerConfig: appRouter,
       builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: MediaQuery.of(context).textScaler,
+        final deviceType = ResponsiveLayout.getDeviceType(context);
+        final layoutMode = ResponsiveLayout.getLayoutMode(context);
+        final isLandscape = ResponsiveLayout.isLandscape(context);
+        final isTablet = ResponsiveLayout.isTablet(context);
+        return ResponsiveWrapper(
+          deviceType: deviceType,
+          layoutMode: layoutMode,
+          isLandscape: isLandscape,
+          isTablet: isTablet,
+          child: MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: MediaQuery.of(context).textScaler,
+            ),
+            child: child ?? const SizedBox.shrink(),
           ),
-          child: child ?? const SizedBox.shrink(),
         );
       },
     );
@@ -129,7 +140,9 @@ class _AppState extends ConsumerState<App> {
                             ),
                           ),
                           Text(
-                            'v${result.plugin.version} → v${result.remoteVersion}',
+                            result.remoteVersion != null && result.remoteVersion != 'latest'
+                                ? 'v${result.plugin.version} → v${result.remoteVersion}'
+                                : 'v${result.plugin.version} → 可更新',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF4CAF50),

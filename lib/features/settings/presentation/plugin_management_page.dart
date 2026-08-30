@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../application/plugin_providers.dart';
@@ -29,14 +32,162 @@ class PluginManagementPage extends ConsumerStatefulWidget {
 
 class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
   bool _isCheckingUpdates = false;
+  StreamSubscription<Map<String, dynamic>>? _updateNoticeSubscription;
 
   @override
   void initState() {
     super.initState();
+    // Subscribe to plugin-initiated update notices (from lx.send('updateAlert')).
+    _subscribeToUpdateNotices();
     // Auto-check for updates when the page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAllUpdates();
     });
+  }
+
+  @override
+  void dispose() {
+    _updateNoticeSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _subscribeToUpdateNotices() {
+    final pluginService = ref.read(pluginServiceProvider);
+    _updateNoticeSubscription = pluginService.updateNoticeStream.listen((notice) {
+      if (!mounted) return;
+      final pluginName = notice['pluginName'] as String? ?? '未知插件';
+      final pluginVersion = notice['pluginVersion'] as String? ?? '';
+      final pluginId = notice['pluginId'] as String? ?? '';
+      final data = notice['data'];
+      String log = '';
+      String? updateUrl;
+      if (data is Map) {
+        log = data['log']?.toString() ?? '';
+        updateUrl = data['updateUrl']?.toString();
+      } else if (data is String) {
+        log = data;
+      }
+
+      // Store the notice in the provider so the UI can show update badges.
+      final existing = ref.read(pluginScriptUpdateNoticesProvider);
+      if (!existing.any((n) => n['pluginId'] == pluginId)) {
+        ref.read(pluginScriptUpdateNoticesProvider.notifier).state = [
+          ...existing,
+          notice,
+        ];
+      }
+
+      _showPluginUpdateNoticeDialog(
+        pluginName: pluginName,
+        pluginVersion: pluginVersion,
+        log: log,
+        updateUrl: updateUrl,
+      );
+    });
+  }
+
+  void _showPluginUpdateNoticeDialog({
+    required String pluginName,
+    required String pluginVersion,
+    required String log,
+    String? updateUrl,
+  }) {
+    final colors = ref.read(themeColorsProvider);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.system_update, color: Color(0xFF4CAF50), size: 24),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              '插件更新',
+              style: TextStyle(color: colors.textPrimary, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.extension, color: colors.primary, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          pluginName,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          '当前版本 v$pluginVersion',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colors.textHint,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (log.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                log,
+                style: TextStyle(color: colors.textSecondary, fontSize: 14),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('关闭', style: TextStyle(color: colors.textHint)),
+          ),
+          if (updateUrl != null && updateUrl.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _openUpdateUrl(updateUrl);
+              },
+              child: const Text(
+                '前往更新',
+                style: TextStyle(
+                  color: Color(0xFF4CAF50),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _openUpdateUrl(String url) async {
+    try {
+      await launchUrl(Uri.parse(url));
+    } catch (e) {
+      debugPrint('Failed to open update URL: $e');
+    }
   }
 
   Future<void> _checkAllUpdates() async {
@@ -50,6 +201,44 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
     } finally {
       if (mounted) setState(() => _isCheckingUpdates = false);
     }
+
+    // Show any pending plugin-initiated update notices that arrived
+    // during plugin initialization (before this page was opened).
+    _showPendingPluginUpdateNotices();
+  }
+
+  void _showPendingPluginUpdateNotices() {
+    // Retrieve buffered notices that arrived during plugin initialization
+    // (before this page was opened). The buffer persists so repeated
+    // opens of the page still show the update notification.
+    final pluginService = ref.read(pluginServiceProvider);
+    final pending = pluginService.getBufferedUpdateNotices();
+    if (pending.isEmpty) return;
+    debugPrint('[PluginManagementPage] Showing ${pending.length} buffered update notices');
+    // Show dialogs sequentially with a small delay between each.
+    for (final notice in pending) {
+      final pluginName = notice['pluginName'] as String? ?? '未知插件';
+      final pluginVersion = notice['pluginVersion'] as String? ?? '';
+      final data = notice['data'];
+      String log = '';
+      String? updateUrl;
+      if (data is Map) {
+        log = data['log']?.toString() ?? '';
+        updateUrl = data['updateUrl']?.toString();
+      } else if (data is String) {
+        log = data;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showPluginUpdateNoticeDialog(
+            pluginName: pluginName,
+            pluginVersion: pluginVersion,
+            log: log,
+            updateUrl: updateUrl,
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -57,6 +246,39 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
     final colors = ref.watch(themeColorsProvider);
     final pluginsAsync = ref.watch(pluginsProvider);
     final updateResults = ref.watch(pluginUpdateResultsProvider);
+    final scriptNotices = ref.watch(pluginScriptUpdateNoticesProvider);
+
+    // Merge script-initiated update notices into the update results so
+    // plugin cards show update badges for ALL plugin types (lx and cr).
+    final mergedResults = List<PluginUpdateResult>.from(updateResults);
+    for (final notice in scriptNotices) {
+      final pluginId = notice['pluginId'] as String? ?? '';
+      // Skip if already detected by the manual check.
+      if (mergedResults.any((r) => r.plugin.id == pluginId && r.available)) continue;
+      final pluginName = notice['pluginName'] as String? ?? '';
+      final pluginVersion = notice['pluginVersion'] as String? ?? '';
+      final data = notice['data'];
+      String log = '';
+      String? updateUrl;
+      if (data is Map) {
+        log = data['log']?.toString() ?? '';
+        updateUrl = data['updateUrl']?.toString();
+      } else if (data is String) {
+        log = data;
+      }
+      // Find the matching PluginInfo from the loaded plugins list.
+      final pluginInfo = pluginsAsync.valueOrNull
+          ?.where((p) => p.id == pluginId)
+          .firstOrNull;
+      if (pluginInfo != null && log.isNotEmpty) {
+        mergedResults.add(PluginUpdateResult(
+          plugin: pluginInfo,
+          available: true,
+          remoteVersion: pluginVersion.isNotEmpty ? pluginVersion : 'latest',
+          remoteCode: log,
+        ));
+      }
+    }
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -100,13 +322,13 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
       body: pluginsAsync.when(
         data: (plugins) => plugins.isEmpty
             ? _buildEmptyState(colors)
-            : ListView.builder(
+            :              ListView.builder(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 itemCount: plugins.length,
                 itemBuilder: (context, index) => _buildPluginCard(
                   colors,
                   plugins[index],
-                  updateResults,
+                  mergedResults,
                 ),
               ),
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -616,7 +838,9 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                           ),
                         ),
                         Text(
-                          'v${result.plugin.version} → v${result.remoteVersion}',
+                          result.remoteVersion != null && result.remoteVersion != 'latest'
+                              ? 'v${result.plugin.version} → v${result.remoteVersion}'
+                              : 'v${result.plugin.version} → 可更新',
                           style: TextStyle(
                             fontSize: 12,
                             color: const Color(0xFF4CAF50),
@@ -628,9 +852,31 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                 ],
               ),
             ),
+            if (result.remoteCode != null &&
+                result.remoteCode!.isNotEmpty &&
+                result.remoteCode != result.remoteVersion) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: colors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Text(
+                  result.remoteCode!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.textHint,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.md),
             Text(
-              '发现新版本 v${result.remoteVersion}，是否更新？',
+              result.remoteVersion != null && result.remoteVersion != 'latest'
+                  ? '发现新版本 v${result.remoteVersion}，是否更新？'
+                  : '插件有新版本可用，是否更新？',
               style: TextStyle(color: colors.textSecondary, fontSize: 14),
             ),
           ],
@@ -688,6 +934,10 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
 
       ref.invalidate(pluginInitializedProvider);
       ref.invalidate(pluginsProvider);
+
+      // Clear buffered update notice for this plugin so it doesn't
+      // show again after the page is reopened.
+      ref.read(pluginServiceProvider).clearBufferedUpdateNotice(result.plugin.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

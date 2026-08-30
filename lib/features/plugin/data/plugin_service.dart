@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -13,6 +14,40 @@ class PluginService {
   static const String _prefsKey = 'installed_plugins';
   final Map<String, PluginHost> _loadedPlugins = {};
   final Map<String, JsEngineService> _engines = {};
+
+  /// Broadcast stream that merges update notices from ALL loaded plugin engines.
+  final _updateNoticeController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Stream of update notices emitted by any loaded plugin.
+  /// Each event is a map with keys: `type`, `data`, `pluginName`, `pluginVersion`.
+  Stream<Map<String, dynamic>> get updateNoticeStream =>
+      _updateNoticeController.stream;
+
+  final List<StreamSubscription<Map<String, dynamic>>> _noticeSubscriptions = [];
+
+  /// Buffered update notices from plugin scripts (persists across stream
+  /// subscribers being added/removed). The UI reads this when the plugin
+  /// management page opens to catch notices that arrived earlier.
+  final List<Map<String, dynamic>> _bufferedUpdateNotices = [];
+
+  /// Retrieve all buffered plugin-initiated update notices.
+  /// The buffer is NOT cleared so that repeated opens of the plugin
+  /// management page still show the update notification.
+  List<Map<String, dynamic>> getBufferedUpdateNotices() {
+    return List<Map<String, dynamic>>.from(_bufferedUpdateNotices);
+  }
+
+  /// Clear a specific plugin's buffered update notice (e.g. after the
+  /// user updates or dismisses it).
+  void clearBufferedUpdateNotice(String pluginId) {
+    _bufferedUpdateNotices.removeWhere((n) => n['pluginId'] == pluginId);
+  }
+
+  /// Clear all buffered update notices.
+  void clearAllBufferedUpdateNotices() {
+    _bufferedUpdateNotices.clear();
+  }
 
   Future<List<PluginInfo>> loadPlugins() async {
     final prefs = await SharedPreferences.getInstance();
@@ -553,12 +588,32 @@ class PluginService {
     try {
       await engine.init();
       final host = PluginHost(engine);
+
+      // Subscribe to update notices BEFORE loading the plugin, because
+      // LX plugins call lx.send('updateAlert', ...) during initialization
+      // (inside loadPlugin). If we subscribe after, the broadcast stream
+      // drops the event since there are no subscribers yet.
+      final subscription = host.updateNotices.listen((notice) {
+        final enriched = {
+          ...notice,
+          'pluginName': plugin.name,
+          'pluginVersion': plugin.version,
+          'pluginId': plugin.id,
+        };
+        _updateNoticeController.add(enriched);
+        // Buffer the notice so the UI can retrieve it even if the page
+        // is not currently open.
+        _bufferedUpdateNotices.add(enriched);
+      });
+      _noticeSubscriptions.add(subscription);
+
       await host.loadPlugin(
         prepared.code,
         originalPluginCode: prepared.originalCode,
       );
       _loadedPlugins[plugin.id] = host;
       _engines[plugin.id] = engine;
+
       return host;
     } on StackOverflowError catch (e) {
       engine.dispose();
@@ -585,9 +640,17 @@ class PluginService {
   void _unloadPlugin(String id) {
     _loadedPlugins.remove(id);
     _engines.remove(id)?.dispose();
+    // Cancel notice subscriptions for this plugin.
+    // Subscriptions are not tracked per-plugin ID, so we cancel all
+    // and re-subscribe surviving plugins if needed. In practice,
+    // _unloadAllPlugins is called before re-initialization.
   }
 
   void _unloadAllPlugins() {
+    for (final sub in _noticeSubscriptions) {
+      sub.cancel();
+    }
+    _noticeSubscriptions.clear();
     for (final engine in _engines.values) {
       engine.dispose();
     }
@@ -679,6 +742,7 @@ class PluginService {
 
   void dispose() {
     _unloadAllPlugins();
+    _updateNoticeController.close();
   }
 }
 

@@ -313,6 +313,25 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
   }
 
   Widget _buildCover(ThemeColors colors) {
+    // 优先使用 coverUrl（精准匹配后的在线封面），再回退到设备本地封面
+    if (widget.song.coverUrl != null && widget.song.coverUrl!.isNotEmpty) {
+      return MusicCoverImage(
+        url: widget.song.coverUrl,
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        errorWidget: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: colors.surfaceVariant,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Icon(Icons.music_note, size: 22, color: colors.primary),
+        ),
+      );
+    }
     if (widget.song.isLocal && widget.song.mediaStoreId != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -338,21 +357,14 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
       );
     }
 
-    return MusicCoverImage(
-      url: widget.song.coverUrl,
+    return Container(
       width: 44,
       height: 44,
-      fit: BoxFit.cover,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      errorWidget: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: colors.surfaceVariant,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        child: Icon(Icons.music_note, size: 22, color: colors.primary),
+      decoration: BoxDecoration(
+        color: colors.surfaceVariant,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
+      child: Icon(Icons.music_note, size: 22, color: colors.primary),
     );
   }
 

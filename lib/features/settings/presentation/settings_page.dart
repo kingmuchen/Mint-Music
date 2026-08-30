@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/responsive_layout.dart';
 import '../application/settings_providers.dart';
 import '../application/plugin_providers.dart';
 import '../application/update_providers.dart';
@@ -97,9 +98,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   SettingsCategory _activeCategory = SettingsCategory.appearance;
 
-  /// 记录上一次的分类，用于判断切换方向
-  SettingsCategory _previousCategory = SettingsCategory.appearance;
-
   /// 水平滚动控制器：用于点击标签时将选中项自动居中
   final ScrollController _tabScrollController = ScrollController();
 
@@ -178,9 +176,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildHeader(ThemeColors colors) {
+    final isTablet = ResponsiveLayout.isTablet(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
+      padding: EdgeInsets.symmetric(
+        horizontal: ResponsiveLayout.horizontalPadding(context),
         vertical: AppSpacing.md,
       ),
       child: Row(
@@ -188,7 +187,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           Text(
             '设置',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: isTablet ? 26 : 22,
               fontWeight: FontWeight.bold,
               color: colors.textPrimary,
             ),
@@ -223,7 +222,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     borderRadius: BorderRadius.circular(20),
                     onTap: () {
                       setState(() {
-                        _previousCategory = _activeCategory;
                         _activeCategory = cat;
                       });
                       _scrollToActiveTab();
@@ -278,57 +276,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
 
   Widget _buildContent(ThemeColors colors) {
+    // Only build the active category to avoid constructing all 6 categories
+    // (and their heavy providers like plugins, directory scanning, etc.) on
+    // first render, which causes a noticeable delay when navigating here.
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
+      padding: EdgeInsets.fromLTRB(
+        ResponsiveLayout.horizontalPadding(context),
         AppSpacing.md,
-        AppSpacing.lg,
+        ResponsiveLayout.horizontalPadding(context),
         AppSpacing.xxxl,
       ),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        transitionBuilder: (child, animation) {
-          // 判断切换方向：新页面从右向左滑入，旧页面从左向右滑出
-          final currentIndex =
-              SettingsCategory.values.indexOf(_activeCategory);
-          final previousIndex =
-              SettingsCategory.values.indexOf(_previousCategory);
-          final isForward = currentIndex >= previousIndex;
-
-          // 淡入淡出 + 水平滑动
-          final fadeTransition = FadeTransition(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
-            ),
-            child: child,
-          );
-
-          final slideTransition = SlideTransition(
-            position: Tween<Offset>(
-              begin: Offset(isForward ? 0.15 : -0.15, 0.0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
-            )),
-            child: fadeTransition,
-          );
-
-          return slideTransition;
-        },
-        child: KeyedSubtree(
-          key: ValueKey(_activeCategory),
-          child: _buildCategoryContent(),
-        ),
-      ),
+      child: _buildContentForCategory(_activeCategory),
     );
   }
 
-  Widget _buildCategoryContent() {
-    switch (_activeCategory) {
+  Widget _buildContentForCategory(SettingsCategory cat) {
+    switch (cat) {
       case SettingsCategory.appearance:
         return const _AppearanceContent();
       case SettingsCategory.playback:
@@ -343,6 +306,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         return const _AboutContent();
     }
   }
+
 }
 
 class _SettingGroup extends StatelessWidget {
