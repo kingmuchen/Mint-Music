@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../application/local_providers.dart';
@@ -110,9 +111,9 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
                 labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
                 dividerColor: Colors.transparent,
-                tabs: const [
-                  Tab(text: '编辑信息'),
-                  Tab(text: '在线搜索'),
+                tabs: [
+                  Tab(text: context.tr('编辑信息')),
+                  Tab(text: context.tr('在线搜索')),
                 ],
               ),
             ),
@@ -150,7 +151,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
-              '编辑标签',
+              context.tr('编辑标签'),
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -186,7 +187,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
                       Icon(Icons.check, size: 16, color: colors.textOnPrimary),
                     const SizedBox(width: 4),
                     Text(
-                      '保存',
+                      context.tr('保存'),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -210,7 +211,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
           children: [
             Icon(Icons.error_outline, size: 48, color: colors.textHint),
             const SizedBox(height: AppSpacing.md),
-            Text('未找到歌曲信息', style: TextStyle(color: colors.textHint)),
+            Text(context.tr('未找到歌曲信息'), style: TextStyle(color: colors.textHint)),
           ],
         ),
       );
@@ -223,17 +224,17 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
         children: [
           _buildCoverSection(colors),
           const SizedBox(height: AppSpacing.xl),
-          _buildField('歌曲名', _titleController, colors, Icons.music_note),
-          _buildField('歌手', _artistController, colors, Icons.person),
-          _buildField('专辑', _albumController, colors, Icons.album),
+          _buildField(context.tr('歌曲名'), _titleController, colors, Icons.music_note),
+          _buildField(context.tr('歌手'), _artistController, colors, Icons.person),
+          _buildField(context.tr('专辑'), _albumController, colors, Icons.album),
           Row(
             children: [
               Expanded(
-                child: _buildField('年份', _yearController, colors, Icons.calendar_today),
+                child: _buildField(context.tr('年份'), _yearController, colors, Icons.calendar_today),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: _buildField('流派', _genreController, colors, Icons.category),
+                child: _buildField(context.tr('流派'), _genreController, colors, Icons.category),
               ),
             ],
           ),
@@ -269,7 +270,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
                       Icon(Icons.music_note, size: 48, color: colors.primary.withValues(alpha: 0.5)),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        _song?.hasCover == true ? '有封面' : '无封面',
+                        context.tr(_song?.hasCover == true ? '有封面' : '无封面'),
                         style: TextStyle(fontSize: 11, color: colors.textHint),
                       ),
                     ],
@@ -287,9 +288,11 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
           if (_song?.bitrate != null && _song!.bitrate! > 0) ...[
             const SizedBox(height: 2),
             Text(
-              '${(_song!.bitrate! / 1000).round()} kbps'
-              '${_song?.sampleRate != null ? ' · ${(_song!.sampleRate! / 1000).toStringAsFixed(1)} kHz' : ''}'
-              '${_song?.channels != null ? ' · ${_song!.channels == 2 ? '立体声' : '单声道'}' : ''}',
+              context.tr(
+                '${(_song!.bitrate! / 1000).round()} kbps'
+                '${_song?.sampleRate != null ? ' · ${(_song!.sampleRate! / 1000).toStringAsFixed(1)} kHz' : ''}'
+                '${_song?.channels != null ? ' · ${_song!.channels == 2 ? '立体声' : '单声道'}' : ''}',
+              ),
               style: TextStyle(fontSize: 11, color: colors.textHint),
             ),
           ],
@@ -349,7 +352,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
             Icon(Icons.lyrics, size: 16, color: colors.textHint),
             const SizedBox(width: AppSpacing.xs),
             Text(
-              '歌词',
+              context.tr('歌词'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -365,7 +368,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
                   });
                 },
                 child: Text(
-                  '清空',
+                  context.tr('清空'),
                   style: TextStyle(fontSize: 12, color: colors.primary),
                 ),
               ),
@@ -390,7 +393,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 borderSide: BorderSide.none,
               ),
-              hintText: '输入LRC歌词内容',
+              hintText: context.tr('输入LRC歌词内容'),
               hintStyle: TextStyle(color: colors.textHint, fontSize: 13),
               contentPadding: const EdgeInsets.all(AppSpacing.md),
             ),
@@ -416,7 +419,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
                     children: [
                       CircularProgressIndicator(color: colors.primary),
                       const SizedBox(height: AppSpacing.md),
-                      Text('搜索中...', style: TextStyle(color: colors.textHint, fontSize: 14)),
+                      Text(context.tr('搜索中...'), style: TextStyle(color: colors.textHint, fontSize: 14)),
                     ],
                   ),
                 )
@@ -444,7 +447,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
               controller: _searchController,
               onSubmitted: (_) => _handleSearch(),
               decoration: InputDecoration(
-                hintText: '输入关键词搜索 (歌曲名 歌手)',
+                hintText: context.tr('输入关键词搜索 (歌曲名 歌手)'),
                 border: InputBorder.none,
                 hintStyle: TextStyle(color: colors.textHint, fontSize: 14),
               ),
@@ -468,7 +471,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
                 borderRadius: BorderRadius.circular(AppRadius.full),
               ),
               child: Text(
-                '搜索',
+                context.tr('搜索'),
                 style: TextStyle(fontSize: 13, color: colors.textOnPrimary, fontWeight: FontWeight.w500),
               ),
             ),
@@ -570,7 +573,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
                 border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
               ),
               child: Text(
-                '使用',
+                context.tr('使用'),
                 style: TextStyle(
                   fontSize: 12,
                   color: colors.primary,
@@ -592,7 +595,9 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
           Icon(Icons.search, size: 48, color: colors.textHint.withValues(alpha: 0.5)),
           const SizedBox(height: AppSpacing.md),
           Text(
-            _searchController.text.isEmpty ? '输入关键词开始搜索' : '未找到相关结果',
+            context.tr(
+              _searchController.text.isEmpty ? '输入关键词开始搜索' : '未找到相关结果',
+            ),
             style: TextStyle(color: colors.textHint, fontSize: 14),
           ),
         ],
@@ -619,7 +624,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
       if (mounted) {
         setState(() => _searching = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('搜索失败: $e'), duration: const Duration(seconds: 2)),
+          SnackBar(content: Text(context.tr('搜索失败: $e')), duration: const Duration(seconds: 2)),
         );
       }
     }
@@ -652,9 +657,9 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已应用元数据，请检查后保存'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(context.tr('已应用元数据，请检查后保存')),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -662,7 +667,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('应用失败: $e'),
+            content: Text(context.tr('应用失败: $e')),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -690,14 +695,14 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('标签已保存'), duration: Duration(seconds: 2)),
+          SnackBar(content: Text(context.tr('标签已保存')), duration: const Duration(seconds: 2)),
         );
         context.pop();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e'), duration: Duration(seconds: 2)),
+          SnackBar(content: Text(context.tr('保存失败: $e')), duration: Duration(seconds: 2)),
         );
       }
     } finally {

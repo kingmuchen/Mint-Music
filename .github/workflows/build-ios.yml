@@ -1,0 +1,90 @@
+name: Build iOS (Unsigned IPA)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter info
+        run: flutter doctor -v
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install --repo-update
+
+      # Override xcconfig to fully disable code signing for CI builds
+      - name: Disable code signing
+        run: |
+          # Backup originals
+          cp ios/Flutter/Debug.xcconfig ios/Flutter/Debug.xcconfig.bak
+          cp ios/Flutter/Release.xcconfig ios/Flutter/Release.xcconfig.bak
+          # Create override xcconfig
+          printf '#include "Generated.xcconfig"\nCODE_SIGNING_ALLOWED=NO\nCODE_SIGNING_REQUIRED=NO\nCODE_SIGN_IDENTITY=""\nCODE_SIGN_STYLE=Manual\nDEVELOPMENT_TEAM=""\nPROVISIONING_PROFILE=""\n' > ios/Flutter/NoCodesign.xcconfig
+          # Point Debug/Release at the override
+          echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Debug.xcconfig
+          echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Release.xcconfig
+
+      - name: Build iOS (no codesign)
+        run: flutter build ipa --release --no-codesign
+
+      - name: Restore xcconfig
+        if: always()
+        run: |
+          cp ios/Flutter/Debug.xcconfig.bak ios/Flutter/Debug.xcconfig 2>/dev/null || true
+          cp ios/Flutter/Release.xcconfig.bak ios/Flutter/Release.xcconfig 2>/dev/null || true
+          rm -f ios/Flutter/Debug.xcconfig.bak ios/Flutter/Release.xcconfig.bak
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mintmusic-ios-unsigned
+          path: build/ios/ipa/*.ipa
+          retention-days: 7
+          if-no-files-found: error
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mintmusic-android
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 7
+          if-no-files-found: error

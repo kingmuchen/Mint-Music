@@ -12,5 +12,11 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // MintMusic platform channels (mirrors the Android MainActivity setup).
+    let messenger = engineBridge.applicationRegistrar.messenger()
+    MediaScannerHandler.register(with: messenger)
+    TagWriterHandler.register(with: messenger)
+    AudioEffectsHandler.register(with: messenger)
   }
-}
+}

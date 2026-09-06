@@ -53,7 +53,6 @@ class _MusicCoverImageState extends State<MusicCoverImage> {
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {
-        'Referer': 'https://music.163.com',
         'User-Agent':
             'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
       },
@@ -93,9 +92,11 @@ class _MusicCoverImageState extends State<MusicCoverImage> {
     if (needsReferer && imageUrl.startsWith('http://')) {
       imageUrl = 'https://${imageUrl.substring(7)}';
     }
-    // Kuwo's official CDN is stable over HTTP, while some CDN nodes present
-    // an HTTPS certificate whose hostname does not match on Android.
-    if (imageUrl.contains('kwcdn.kuwo.cn') && imageUrl.startsWith('https://')) {
+    // Kuwo CDN 在某些 Android 设备上 HTTPS 证书不匹配，降级为 HTTP
+    if ((imageUrl.contains('kwcdn.kuwo.cn') ||
+            imageUrl.contains('kuwo.cn') ||
+            imageUrl.contains('img1.kuwo.cn')) &&
+        imageUrl.startsWith('https://')) {
       imageUrl = 'http://${imageUrl.substring(8)}';
     }
 
@@ -133,10 +134,15 @@ class _MusicCoverImageState extends State<MusicCoverImage> {
   Future<void> _fetchImage(String imageUrl, bool needsReferer) async {
     try {
       final dio = needsReferer ? _refererDio : _dio;
+      final options = Options(responseType: ResponseType.bytes);
+      // 网易云 CDN 需要 Referer 头
+      if (needsReferer) {
+        options.headers = {'Referer': 'https://music.163.com'};
+      }
 
       final response = await dio.get<List<int>>(
         imageUrl,
-        options: Options(responseType: ResponseType.bytes),
+        options: options,
       );
 
       if (response.data == null) {
@@ -145,6 +151,13 @@ class _MusicCoverImageState extends State<MusicCoverImage> {
       }
 
       final bytes = Uint8List.fromList(response.data!);
+
+      // 某些 CDN 返回 0 字节或极小的错误响应（如 HTML 错误页）
+      if (bytes.length < 100) {
+        debugPrint('[MusicCoverImage] 响应过小 (${bytes.length} bytes)，可能不是图片: $imageUrl');
+        _onError(imageUrl);
+        return;
+      }
 
       if (bytes.length <= _maxCacheBytes) {
         while (_cacheBytes + bytes.length > _maxCacheBytes &&
@@ -171,6 +184,43 @@ class _MusicCoverImageState extends State<MusicCoverImage> {
         }
       }
     } catch (e) {
+      // 首次失败时带 User-Agent 重试一次（部分 CDN 需要这些头）
+      if (!needsReferer) {
+        try {
+          debugPrint('[MusicCoverImage] 首次加载失败，带 User-Agent 重试: $imageUrl');
+          final response = await _refererDio.get<List<int>>(
+            imageUrl,
+            options: Options(responseType: ResponseType.bytes),
+          );
+          if (response.data != null && response.data!.length >= 100) {
+            final bytes = Uint8List.fromList(response.data!);
+            if (bytes.length <= _maxCacheBytes) {
+              while (_cacheBytes + bytes.length > _maxCacheBytes &&
+                  _cache.isNotEmpty) {
+                final oldestKey = _cache.keys.first;
+                final oldest = _cache.remove(oldestKey);
+                if (oldest != null) _cacheBytes -= oldest.length;
+              }
+              _cache[imageUrl] = bytes;
+              _cacheBytes += bytes.length;
+            }
+            if (mounted && _lastUrl == imageUrl) {
+              setState(() {
+                _bytes = bytes;
+                _loading = false;
+              });
+            }
+            final callbacks = _pending.remove(imageUrl);
+            if (callbacks != null) {
+              for (final cb in callbacks) {
+                cb(bytes);
+              }
+            }
+            return;
+          }
+        } catch (_) {}
+      }
+      debugPrint('[MusicCoverImage] 加载失败: $imageUrl - $e');
       _onError(imageUrl);
     }
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/utils/responsive_layout.dart';
@@ -65,15 +66,15 @@ class _LocalPageState extends ConsumerState<LocalPage> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('需要存储权限', style: TextStyle(color: colors.textPrimary)),
+        title: Text(context.tr('需要存储权限'), style: TextStyle(color: colors.textPrimary)),
         content: Text(
-          '为了扫描本地音乐，薄荷音乐需要访问您设备上的音频文件。请授予权限后继续。',
+          context.tr('为了扫描本地音乐，薄荷音乐需要访问您设备上的音频文件。请授予权限后继续。'),
           style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () async {
@@ -81,11 +82,11 @@ class _LocalPageState extends ConsumerState<LocalPage> {
               final granted = await ref.read(localMusicNotifierProvider.notifier).requestPermissionAndScan();
               if (!granted && mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('权限被拒绝，无法扫描本地音乐'), duration: Duration(seconds: 3)),
+                  SnackBar(content: Text(context.tr('权限被拒绝，无法扫描本地音乐')), duration: const Duration(seconds: 3)),
                 );
               }
             },
-            child: Text('授权', style: TextStyle(color: colors.primary)),
+            child: Text(context.tr('授权'), style: TextStyle(color: colors.primary)),
           ),
         ],
       ),
@@ -174,7 +175,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
-              '本地音乐库',
+              context.tr('本地音乐库'),
               style: TextStyle(
                 fontSize: isTablet ? 26 : 22,
                 fontWeight: FontWeight.bold,
@@ -196,7 +197,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                   Icon(Icons.folder_open, size: 16, color: colors.textSecondary),
                   const SizedBox(width: 4),
                   Text(
-                    '选择目录',
+                    context.tr('选择目录'),
                     style: TextStyle(fontSize: 12, color: colors.textSecondary, fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -229,7 +230,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                       Icon(Icons.play_arrow, size: 18, color: colors.textOnPrimary),
                       const SizedBox(width: AppSpacing.xs),
                       Text(
-                        '播放全部',
+                        context.tr('播放全部'),
                         style: TextStyle(fontSize: 13, color: colors.textOnPrimary, fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -279,7 +280,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
               ],
               const Spacer(),
               Text(
-                '${songs.length} 首',
+                context.tr('${songs.length} 首'),
                 style: TextStyle(fontSize: 12, color: colors.textHint),
               ),
             ],
@@ -309,7 +310,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                 ref.read(localSearchQueryProvider.notifier).state = value;
               },
               decoration: InputDecoration(
-                hintText: '搜索本地歌曲/歌手/专辑',
+                hintText: context.tr('搜索本地歌曲/歌手/专辑'),
                 border: InputBorder.none,
                 hintStyle: TextStyle(color: colors.textHint, fontSize: 14),
               ),
@@ -375,12 +376,12 @@ class _LocalPageState extends ConsumerState<LocalPage> {
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            '暂无本地音乐',
+            context.tr('暂无本地音乐'),
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: colors.textPrimary),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '点击下方按钮扫描设备音乐',
+            context.tr('点击下方按钮扫描设备音乐'),
             style: TextStyle(fontSize: 13, color: colors.textHint),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -389,7 +390,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
               final granted = await ref.read(localMusicNotifierProvider.notifier).requestPermissionAndScan();
               if (!granted && mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('权限被拒绝，无法扫描本地音乐'), duration: Duration(seconds: 3)),
+                  SnackBar(content: Text(context.tr('权限被拒绝，无法扫描本地音乐')), duration: const Duration(seconds: 3)),
                 );
               }
             },
@@ -400,7 +401,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                 borderRadius: BorderRadius.circular(AppRadius.full),
               ),
               child: Text(
-                '扫描本地音乐',
+                context.tr('扫描本地音乐'),
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textOnPrimary),
               ),
             ),
@@ -417,11 +418,11 @@ class _LocalPageState extends ConsumerState<LocalPage> {
         children: [
           Icon(Icons.error_outline, size: 48, color: colors.textHint),
           const SizedBox(height: AppSpacing.md),
-          Text('加载失败', style: TextStyle(color: colors.textHint)),
+          Text(context.tr('加载失败'), style: TextStyle(color: colors.textHint)),
           const SizedBox(height: AppSpacing.sm),
           TextButton(
             onPressed: () => ref.read(localMusicNotifierProvider.notifier).refresh(),
-            child: Text('重试', style: TextStyle(color: colors.primary)),
+            child: Text(context.tr('重试'), style: TextStyle(color: colors.primary)),
           ),
         ],
       ),
@@ -446,7 +447,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
     final controller = ref.read(playbackControllerProvider.notifier);
     controller.appendToQueue(songs);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已将 ${songs.length} 首加入播放列表'), duration: const Duration(seconds: 2)),
+      SnackBar(content: Text(context.tr('已将 ${songs.length} 首加入播放列表')), duration: const Duration(seconds: 2)),
     );
   }
 
@@ -454,7 +455,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
     await ref.read(localMusicNotifierProvider.notifier).requestPermissionAndScan();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('扫描完成'), duration: Duration(seconds: 2)),
+        SnackBar(content: Text(context.tr('扫描完成')), duration: const Duration(seconds: 2)),
       );
     }
   }
@@ -486,19 +487,19 @@ class _LocalPageState extends ConsumerState<LocalPage> {
       useRootNavigator: true,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('删除歌曲', style: TextStyle(color: colors.textPrimary)),
+        title: Text(context.tr('删除歌曲'), style: TextStyle(color: colors.textPrimary)),
         content: Text(
-          '确定要删除「${song.title}」吗？\n此操作将从本地音乐库移除该歌曲。',
+          context.tr('确定要删除「${song.title}」吗？\n此操作将从本地音乐库移除该歌曲。'),
           style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('删除', style: TextStyle(color: colors.error)),
+            child: Text(context.tr('删除'), style: TextStyle(color: colors.error)),
           ),
         ],
       ),
@@ -511,7 +512,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? '已删除「${song.title}」' : '删除失败'),
+        content: Text(ok ? context.tr('已删除「${song.title}」') : context.tr('删除失败')),
         duration: const Duration(seconds: 2),
         backgroundColor: ok ? null : Colors.red,
       ),
@@ -568,19 +569,19 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      '更多操作',
+                      context.tr('更多操作'),
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    _contextMenuItem(colors, Icons.playlist_add, '添加全部到播放列表', () {
+                    _contextMenuItem(colors, Icons.playlist_add, context.tr('添加全部到播放列表'), () {
                       Navigator.pop(context);
                       _addAllToPlaylist(songs);
                     }),
-                    _contextMenuItem(colors, Icons.delete_outline, '清空所有', () {
+                    _contextMenuItem(colors, Icons.delete_outline, context.tr('清空所有'), () {
                       Navigator.pop(context);
                       _confirmClearIndex(colors);
                     }),
-                    _contextMenuItem(colors, Icons.auto_fix_high, '批量匹配标签', () {
+                    _contextMenuItem(colors, Icons.auto_fix_high, context.tr('批量匹配封面和歌词'), () {
                       Navigator.pop(context);
                       _startBatchMatch(colors, songs);
                     }),
@@ -601,19 +602,19 @@ class _LocalPageState extends ConsumerState<LocalPage> {
       useRootNavigator: true,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('确认清空', style: TextStyle(color: colors.textPrimary)),
-        content: Text('将清空所有本地音乐索引，此操作不可恢复。', style: TextStyle(color: colors.textSecondary)),
+        title: Text(context.tr('确认清空'), style: TextStyle(color: colors.textPrimary)),
+        content: Text(context.tr('将清空所有本地音乐索引，此操作不可恢复。'), style: TextStyle(color: colors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               ref.read(localMusicNotifierProvider.notifier).clearIndex();
             },
-            child: Text('确认', style: TextStyle(color: colors.primary)),
+            child: Text(context.tr('确认'), style: TextStyle(color: colors.primary)),
           ),
         ],
       ),
@@ -621,21 +622,22 @@ class _LocalPageState extends ConsumerState<LocalPage> {
   }
 
   void _startBatchMatch(ThemeColors colors, List<Song> songs) {
-    final needMatch = songs.where((s) =>
-        !s.hasCover ||
-        s.artist == '未知艺术家' ||
-        s.title == '未知曲目' ||
-        s.album == '未知专辑').toList();
+    // 筛选缺少封面或歌词的歌曲
+    final needMatch = songs.where((s) {
+      final noCover = s.coverUrl == null || s.coverUrl!.isEmpty;
+      final noLyric = s.lrc == null || s.lrc!.isEmpty;
+      return noCover || noLyric;
+    }).toList();
 
     if (needMatch.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有需要匹配的歌曲'), duration: Duration(seconds: 2)),
+        SnackBar(content: Text(context.tr('所有歌曲已有封面和歌词')), duration: const Duration(seconds: 2)),
       );
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('开始匹配 ${needMatch.length} 首歌曲...'), duration: const Duration(seconds: 2)),
+      SnackBar(content: Text(context.tr('开始匹配 ${needMatch.length} 首歌曲的封面和歌词...')), duration: const Duration(seconds: 2)),
     );
 
     _doBatchMatch(colors, needMatch, 0, 0);
@@ -651,7 +653,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('批量匹配完成，成功匹配 $matched 首'), duration: const Duration(seconds: 3)),
+          SnackBar(content: Text(context.tr('批量匹配完成，成功匹配 $matched 首')), duration: const Duration(seconds: 3)),
         );
       }
       return;
@@ -666,22 +668,168 @@ class _LocalPageState extends ConsumerState<LocalPage> {
 
     final song = songs[index];
     try {
-      final searchResults = await _searchOnlineForMatch(song.title);
-      if (searchResults.isNotEmpty) {
-        final best = searchResults.first;
-        final updated = song.copyWith(
-          title: best.title,
-          artist: best.artist,
-          album: best.album,
-          coverUrl: best.coverUrl,
-          hasCover: best.coverUrl != null,
-        );
-        await ref.read(localMusicNotifierProvider.notifier).upsertSong(updated);
+      final manager = ref.read(musicSourceManagerProvider);
+
+      // 构建搜索关键词
+      final title = song.title.trim();
+      final artist = song.artist.trim();
+      final searchQuery = (title.isEmpty || title == '未知曲目')
+          ? (artist.isNotEmpty && artist != '未知艺术家' ? artist : '')
+          : (artist.isEmpty || artist == '未知艺术家' ? title : '$title $artist');
+
+      if (searchQuery.isEmpty) {
+        _doBatchMatch(colors, songs, index + 1, matched);
+        return;
+      }
+
+      // 并行搜索五大音源
+      final aggregated = await manager.aggregateSearch(
+        searchQuery,
+        sourceIds: const ['wy', 'kg', 'tx', 'kw', 'mg'],
+        limit: 5,
+      );
+
+      if (aggregated.isEmpty) {
+        _doBatchMatch(colors, songs, index + 1, matched);
+        return;
+      }
+
+      // 收集所有候选结果并评分排序
+      final candidates = <MapEntry<Song, String>>[];
+      for (final entry in aggregated.entries) {
+        for (final searchSong in entry.value) {
+          candidates.add(MapEntry(searchSong.copyWith(source: entry.key), entry.key));
+        }
+      }
+      candidates.sort((a, b) =>
+          _scoreMatchCandidate(b.key, song).compareTo(_scoreMatchCandidate(a.key, song)));
+
+      // 从最优候选开始，并发获取封面和歌词，最多尝试 3 个候选
+      Song? bestMatch;
+      int tried = 0;
+      for (final candidate in candidates) {
+        final score = _scoreMatchCandidate(candidate.key, song);
+        if (score < 0.3) break;
+        if (tried >= 3) break;
+        tried++;
+
+        String? coverUrl;
+        String? lyric;
+
+        // 优先使用搜索结果中已有的 coverUrl（避免不必要的 API 调用）
+        final existingCover = candidate.key.coverUrl;
+        if (existingCover != null && existingCover.isNotEmpty) {
+          coverUrl = existingCover;
+        }
+
+        // 并发获取封面和歌词
+        final results = await Future.wait([
+          coverUrl == null
+              ? manager.getPic(candidate.key, preferBuiltIn: false)
+                  .timeout(const Duration(seconds: 8))
+              : Future<String?>.value(coverUrl),
+          manager.getLyricResult(candidate.key).timeout(const Duration(seconds: 8)),
+        ]);
+
+        if (coverUrl == null) {
+          coverUrl = results[0] as String?;
+        }
+        final lyricResult = results[1] as dynamic;
+        if (lyricResult != null) {
+          final crlyric = lyricResult.crlyric as String?;
+          final lrc = lyricResult.lrc as String?;
+          if (crlyric != null && crlyric.isNotEmpty) {
+            lyric = crlyric;
+          } else if (lrc != null && lrc.isNotEmpty) {
+            lyric = lrc;
+          }
+        }
+
+        // 至少获取到封面或歌词才算成功
+        if (coverUrl != null || lyric != null) {
+          debugPrint('[BatchMatch] ${song.title} → 封面=${coverUrl != null ? "✓" : "✗"} 歌词=${lyric != null ? "✓" : "✗"} 来源=${candidate.key.source}');
+          bestMatch = song.copyWith(
+            title: candidate.key.title.isNotEmpty ? candidate.key.title : song.title,
+            artist: candidate.key.artist.isNotEmpty ? candidate.key.artist : song.artist,
+            album: candidate.key.album.isNotEmpty ? candidate.key.album : song.album,
+            coverUrl: coverUrl ?? song.coverUrl,
+            hasCover: (coverUrl != null && coverUrl.isNotEmpty) || song.hasCover,
+            lrc: lyric ?? song.lrc,
+          );
+          break;
+        }
+      }
+
+      if (bestMatch != null) {
+        await ref.read(localMusicNotifierProvider.notifier).upsertSong(bestMatch);
+        // 如果是当前正在播放的歌曲，同步更新播放队列
+        ref.read(playbackControllerProvider.notifier).updateSongInQueue(bestMatch);
         _doBatchMatch(colors, songs, index + 1, matched + 1);
         return;
       }
-    } catch (_) {}
+      debugPrint('[BatchMatch] ${song.title} 未找到可用封面或歌词（尝试了 $tried 个候选）');
+    } catch (e) {
+      debugPrint('[BatchMatch] ${song.title} 异常: $e');
+    }
     _doBatchMatch(colors, songs, index + 1, matched);
+  }
+
+  /// 评分候选结果。返回 0.0 ~ 1.0 的分数。
+  double _scoreMatchCandidate(Song candidate, Song local) {
+    double score = 0.0;
+
+    // 标题匹配 (权重 0.5)
+    final titleA = candidate.title.toLowerCase();
+    final titleB = local.title.toLowerCase();
+    if (titleA == titleB) {
+      score += 0.5;
+    } else if (titleA.contains(titleB) || titleB.contains(titleA)) {
+      score += 0.4;
+    } else {
+      final setA = titleA.split('').toSet();
+      final setB = titleB.split('').toSet();
+      final intersection = setA.intersection(setB).length;
+      final union = setA.union(setB).length;
+      score += (union > 0 ? intersection / union : 0.0) * 0.5;
+    }
+
+    // 艺术家匹配 (权重 0.3)
+    final artistA = candidate.artist.toLowerCase();
+    final artistB = local.artist.toLowerCase();
+    if (artistA == artistB) {
+      score += 0.3;
+    } else if (artistA.contains(artistB) || artistB.contains(artistA)) {
+      score += 0.25;
+    } else {
+      final setA = artistA.split('').toSet();
+      final setB = artistB.split('').toSet();
+      final intersection = setA.intersection(setB).length;
+      final union = setA.union(setB).length;
+      score += (union > 0 ? intersection / union : 0.0) * 0.3;
+    }
+
+    // 时长匹配 (权重 0.1)
+    if (local.duration > 0 && candidate.duration > 0) {
+      final durationDiff = (candidate.duration - local.duration).abs();
+      final durationScore = durationDiff <= 3
+          ? 1.0
+          : durationDiff <= 10
+              ? 0.7
+              : durationDiff <= 30
+                  ? 0.3
+                  : 0.0;
+      score += durationScore * 0.1;
+    }
+
+    // 封面可用性 (权重 0.05)
+    if (candidate.coverUrl != null && candidate.coverUrl!.isNotEmpty) {
+      score += 0.05;
+    }
+
+    // 歌词可用性 (权重 0.05)
+    score += 0.05;
+
+    return score;
   }
 
   /// 搜索源显示名称
@@ -753,7 +901,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    '精准匹配',
+                    context.tr('精准匹配'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -778,7 +926,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                         final results = snapshot.data ?? [];
                         if (results.isEmpty) {
                           return Center(
-                            child: Text('未找到匹配结果', style: TextStyle(color: colors.textHint)),
+                            child: Text(context.tr('未找到匹配结果'), style: TextStyle(color: colors.textHint)),
                           );
                         }
                         return ListView.builder(
@@ -883,7 +1031,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                   borderRadius: BorderRadius.circular(AppRadius.full),
                 ),
                 child: Text(
-                  '使用',
+                  context.tr('使用'),
                   style: TextStyle(fontSize: 12, color: colors.textOnPrimary, fontWeight: FontWeight.w500),
                 ),
               ),
@@ -945,21 +1093,21 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Text(
-                          '添加到歌单',
+                          context.tr('添加到歌单'),
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         if (playlists.isEmpty)
                           Padding(
                             padding: const EdgeInsets.all(AppSpacing.xl),
-                            child: Text('暂无歌单', style: TextStyle(color: colors.textHint)),
+                            child: Text(context.tr('暂无歌单'), style: TextStyle(color: colors.textHint)),
                           )
                         else
                           ...playlists.map<Widget>((playlist) => ListTile(
                                 leading: Icon(Icons.queue_music, color: colors.textSecondary),
                                 title: Text(playlist.name, style: TextStyle(color: colors.textPrimary)),
                                 trailing: Text(
-                                  '${playlist.songCount}首',
+                                  context.tr('${playlist.songCount}首'),
                                   style: TextStyle(fontSize: 12, color: colors.textHint),
                                 ),
                                 onTap: () {
@@ -967,7 +1115,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                                   ref.read(playlistsProvider.notifier).addSongToPlaylist(playlist.id, song);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('已添加到"${playlist.name}"'),
+                                      content: Text(context.tr('已添加到"${playlist.name}"')),
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
@@ -984,10 +1132,10 @@ class _LocalPageState extends ConsumerState<LocalPage> {
         );
       },
       loading: () => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('加载歌单中...'), duration: Duration(seconds: 1)),
+        SnackBar(content: Text(context.tr('加载歌单中...')), duration: const Duration(seconds: 1)),
       ),
       error: (_, __) => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('加载歌单失败'), duration: Duration(seconds: 2)),
+        SnackBar(content: Text(context.tr('加载歌单失败')), duration: const Duration(seconds: 2)),
       ),
     );
   }
@@ -1029,14 +1177,16 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      '扫描目录设置',
+                      context.tr('扫描目录设置'),
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      dirs.isEmpty
-                          ? '未设置目录时将扫描设备全部音乐'
-                          : '设置目录后仅扫描指定目录下的音乐',
+                      context.tr(
+                        dirs.isEmpty
+                            ? '未设置目录时将扫描设备全部音乐'
+                            : '设置目录后仅扫描指定目录下的音乐',
+                      ),
                       style: TextStyle(fontSize: 12, color: colors.textHint),
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -1047,7 +1197,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                           children: [
                             Icon(Icons.all_inclusive, size: 32, color: colors.primary.withValues(alpha: 0.5)),
                             const SizedBox(height: AppSpacing.sm),
-                            Text('当前：扫描全部音乐', style: TextStyle(color: colors.textSecondary, fontSize: 13)),
+                            Text(context.tr('当前：扫描全部音乐'), style: TextStyle(color: colors.textSecondary, fontSize: 13)),
                           ],
                         ),
                       )
@@ -1108,7 +1258,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                                   border: Border.all(color: colors.divider),
                                 ),
                                 child: Text(
-                                  '扫描全部',
+                                  context.tr('扫描全部'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 14,
@@ -1137,7 +1287,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                                   border: Border.all(color: colors.divider),
                                 ),
                                 child: Text(
-                                  '添加文件夹',
+                                  context.tr('添加文件夹'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 14,
@@ -1161,7 +1311,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                           if (context.mounted) {
                             Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('目录已保存并重新扫描'), duration: Duration(seconds: 2)),
+                              SnackBar(content: Text(context.tr('目录已保存并重新扫描')), duration: const Duration(seconds: 2)),
                             );
                           }
                         },
@@ -1173,7 +1323,7 @@ class _LocalPageState extends ConsumerState<LocalPage> {
                             borderRadius: BorderRadius.circular(AppRadius.full),
                           ),
                           child: Text(
-                            '确认并重新扫描',
+                            context.tr('确认并重新扫描'),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
@@ -1385,17 +1535,19 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
         hasCover: widget.candidate.coverUrl != null,
         lrc: _lyric?.isNotEmpty == true ? _lyric : null,
       );
-      await ref.read(localMusicNotifierProvider.notifier).upsertSong(updated);
+      await ref.read(localMusicNotifierProvider.notifier).upsertSong(updated, forceOverwrite: true);
+      // 同步更新播放队列中的歌曲，确保迷你播放器/全屏播放页封面和歌词即时刷新
+      ref.read(playbackControllerProvider.notifier).updateSongInQueue(updated);
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已应用匹配结果'), duration: Duration(seconds: 2)),
+          SnackBar(content: Text(context.tr('已应用匹配结果')), duration: const Duration(seconds: 2)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e'), duration: const Duration(seconds: 2)),
+          SnackBar(content: Text(context.tr('保存失败: $e')), duration: const Duration(seconds: 2)),
         );
       }
     } finally {
@@ -1428,7 +1580,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            '确认匹配',
+            context.tr('确认匹配'),
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -1452,7 +1604,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
                 // 原始封面
                 Column(
                   children: [
-                    Text('当前', style: TextStyle(fontSize: 11, color: colors.textHint)),
+                    Text(context.tr('当前'), style: TextStyle(fontSize: 11, color: colors.textHint)),
                     const SizedBox(height: 4),
                     Container(
                       width: 72,
@@ -1481,7 +1633,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
                 // 匹配封面
                 Column(
                   children: [
-                    Text('匹配', style: TextStyle(fontSize: 11, color: colors.primary)),
+                    Text(context.tr('匹配'), style: TextStyle(fontSize: 11, color: colors.primary)),
                     const SizedBox(height: 4),
                     Container(
                       width: 72,
@@ -1546,7 +1698,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
               children: [
                 Icon(Icons.lyrics_outlined, size: 16, color: colors.textSecondary),
                 const SizedBox(width: AppSpacing.xs),
-                Text('歌词预览', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: colors.textSecondary)),
+                Text(context.tr('歌词预览'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: colors.textSecondary)),
               ],
             ),
           ),
@@ -1587,7 +1739,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
                         border: Border.all(color: colors.divider),
                       ),
                       child: Text(
-                        '取消',
+                        context.tr('取消'),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary),
                       ),
@@ -1617,7 +1769,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
                             const SizedBox(width: AppSpacing.xs),
                           ],
                           Text(
-                            _saving ? '保存中...' : '确认使用',
+                            context.tr(_saving ? '保存中...' : '确认使用'),
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textOnPrimary),
                           ),
@@ -1646,7 +1798,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
               child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text('正在获取歌词...', style: TextStyle(fontSize: 12, color: colors.textHint)),
+            Text(context.tr('正在获取歌词...'), style: TextStyle(fontSize: 12, color: colors.textHint)),
           ],
         ),
       );
@@ -1659,7 +1811,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
           children: [
             Icon(Icons.error_outline, size: 24, color: colors.textHint),
             const SizedBox(height: AppSpacing.xs),
-            Text(_lyricError!, style: TextStyle(fontSize: 12, color: colors.textHint)),
+            Text(context.tr(_lyricError!), style: TextStyle(fontSize: 12, color: colors.textHint)),
           ],
         ),
       );
@@ -1672,7 +1824,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
           children: [
             Icon(Icons.lyrics_outlined, size: 24, color: colors.textHint),
             const SizedBox(height: AppSpacing.xs),
-            Text('未找到歌词', style: TextStyle(fontSize: 12, color: colors.textHint)),
+            Text(context.tr('未找到歌词'), style: TextStyle(fontSize: 12, color: colors.textHint)),
           ],
         ),
       );
@@ -1692,7 +1844,7 @@ class _MatchConfirmationSheetState extends ConsumerState<_MatchConfirmationSheet
 
     if (lines.isEmpty) {
       return Center(
-        child: Text('未找到有效歌词', style: TextStyle(fontSize: 12, color: colors.textHint)),
+        child: Text(context.tr('未找到有效歌词'), style: TextStyle(fontSize: 12, color: colors.textHint)),
       );
     }
 

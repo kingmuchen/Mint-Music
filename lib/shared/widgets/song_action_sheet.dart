@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/constants/app_routes.dart';
+import '../../core/l10n/l10n.dart';
 import '../../features/library/application/playlist_providers.dart';
 import '../../features/library/domain/models/playlist.dart';
 import '../../features/player/application/playback_controller.dart';
@@ -195,14 +196,14 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   _buildActionItem(
                     colors: colors,
                     icon: Icons.add_to_photos,
-                    label: '添加到歌单',
+                    label: context.tr('添加到歌单'),
                     onTap: () => _showAddToPlaylist(colors, playlistsAsync),
                     skipPop: true,
                   ),
                   _buildActionItem(
                     colors: colors,
                     icon: Icons.download_outlined,
-                    label: '下载',
+                    label: context.tr('下载'),
                     onTap: _download,
                     skipPop: true,
                   ),
@@ -216,27 +217,27 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   _buildActionItem(
                     colors: colors,
                     icon: Icons.play_circle_outline,
-                    label: '播放',
+                    label: context.tr('播放'),
                     onTap: _play,
                   ),
                   _buildActionItem(
                     colors: colors,
                     icon: Icons.playlist_add,
-                    label: '加入播放列表',
+                    label: context.tr('加入播放列表'),
                     onTap: _appendToQueue,
                   ),
                   if (widget.showDownload)
                     _buildActionItem(
                       colors: colors,
                       icon: Icons.download_outlined,
-                      label: '下载',
+                      label: context.tr('下载'),
                       onTap: _download,
                       skipPop: true,
                     ),
                   _buildActionItem(
                     colors: colors,
                     icon: Icons.add_to_photos,
-                    label: '添加到歌单',
+                    label: context.tr('添加到歌单'),
                     onTap: () => _showAddToPlaylist(colors, playlistsAsync),
                     skipPop: true,
                   ),
@@ -246,7 +247,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                     _buildActionItem(
                       colors: colors,
                       icon: Icons.delete_outline,
-                      label: '删除',
+                      label: context.tr('删除'),
                       onTap: widget.onDelete!,
                       iconColor: colors.error,
                       labelColor: colors.error,
@@ -255,14 +256,14 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                     _buildActionItem(
                       colors: colors,
                       icon: Icons.search,
-                      label: '精准匹配',
+                      label: context.tr('精准匹配'),
                       onTap: widget.onAccurateMatch ?? () {},
                     ),
                   if (widget.showEditTag)
                     _buildActionItem(
                       colors: colors,
                       icon: Icons.edit,
-                      label: '编辑标签',
+                      label: context.tr('编辑标签'),
                       onTap: () => context.push(
                         '${AppRoutes.tagEditor}?songId=${widget.song.id}',
                       ),
@@ -420,7 +421,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
             Icon(Icons.share, size: 22, color: colors.textSecondary),
             const SizedBox(width: AppSpacing.md),
             Text(
-              '分享',
+              context.tr('分享'),
               style: TextStyle(fontSize: 15, color: colors.textPrimary),
             ),
           ],
@@ -449,7 +450,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
             ),
             const SizedBox(width: AppSpacing.md),
             Text(
-              _isFavorited ? '已收藏' : '收藏',
+              context.tr(_isFavorited ? '已收藏' : '收藏'),
               style: TextStyle(
                 fontSize: 15,
                 color: _isFavorited ? Colors.red : colors.textPrimary,
@@ -477,7 +478,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
             Icon(Icons.speed, size: 22, color: colors.textSecondary),
             const SizedBox(width: AppSpacing.md),
             Text(
-              '倍速',
+              context.tr('倍速'),
               style: TextStyle(fontSize: 15, color: colors.textPrimary),
             ),
           ],
@@ -512,8 +513,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                '播放速度',
+              Text(
+                ctx.tr('播放速度'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -584,8 +585,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
             Icon(Icons.lyrics, size: 22, color: colors.textSecondary),
             const SizedBox(width: AppSpacing.md),
             Text(
-              '歌词设置',
-              style: TextStyle(fontSize: 15, color: colors.textPrimary),
+              context.tr('歌词设置'),
+              style: TextStyle(fontSize: 15, color: colors.textSecondary),
             ),
           ],
         ),
@@ -624,8 +625,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '歌词设置',
+                Text(
+                  ctx.tr('歌词设置'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -638,8 +639,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   ctx,
                   container,
                   icon: Icons.font_download,
-                  title: '字体设置',
-                  subtitle: '字体、大小、字重',
+                  title: ctx.tr('字体设置'),
+                  subtitle: ctx.tr('字体、大小、字重'),
                   onTap: () => _showFontPicker(ctx, container),
                 ),
                 const Divider(
@@ -653,7 +654,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   ctx,
                   container,
                   icon: Icons.translate,
-                  title: '显示翻译',
+                  title: ctx.tr('显示翻译'),
                   provider: lyricShowTranslationProvider,
                   getter: (c) => c.read(lyricShowTranslationProvider),
                   setter: (c, v) =>
@@ -670,7 +671,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   ctx,
                   container,
                   icon: Icons.abc,
-                  title: '显示罗马音',
+                  title: ctx.tr('显示罗马音'),
                   provider: lyricShowRomanProvider,
                   getter: (c) => c.read(lyricShowRomanProvider),
                   setter: (c, v) =>
@@ -687,7 +688,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   ctx,
                   container,
                   icon: Icons.blur_on,
-                  title: '模糊效果',
+                  title: ctx.tr('模糊效果'),
                   provider: lyricEnableBlurProvider,
                   getter: (c) => c.read(lyricEnableBlurProvider),
                   setter: (c, v) =>
@@ -704,7 +705,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   ctx,
                   container,
                   icon: Icons.zoom_out_map,
-                  title: '缩放效果',
+                  title: ctx.tr('缩放效果'),
                   provider: lyricEnableScaleProvider,
                   getter: (c) => c.read(lyricEnableScaleProvider),
                   setter: (c, v) =>
@@ -728,7 +729,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                       ctx,
                       container,
                       icon: Icons.format_align_center,
-                      title: '歌词居中',
+                      title: ctx.tr('歌词居中'),
                       provider: provider,
                       getter: (c) => c.read(provider),
                       setter: (c, v) => c.read(provider.notifier).state = v,
@@ -866,9 +867,9 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                 color: AppColors.textSecondary,
               ),
               const SizedBox(width: AppSpacing.md),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Apple Music 风格歌词',
+                  context.tr('Apple Music 风格歌词'),
                   style: TextStyle(fontSize: 15, color: AppColors.textPrimary),
                 ),
               ),
@@ -947,7 +948,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
               final storedFamily = ProviderScope.containerOf(
                 context,
               ).read(lyricFontFamilyProvider);
-              final familyDisplay = fontNameMap[storedFamily] ?? '系统默认';
+              final familyDisplay =
+                  context.tr(fontNameMap[storedFamily] ?? '系统默认');
               final storedRate = ProviderScope.containerOf(
                 context,
               ).read(lyricFontRateProvider);
@@ -969,8 +971,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      '字体设置',
+                    Text(
+                      context.tr('字体设置'),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -979,7 +981,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                     ),
                     const SizedBox(height: 12),
                     // 字体选择
-                    _fontSettingRow(ctx2, c2, '选择字体', familyDisplay, () {
+                    _fontSettingRow(ctx2, c2, ctx2.tr('选择字体'), familyDisplay, () {
                       _showFontFamilyPicker(ctx2, c2).then((_) {
                         setSheetState(() {});
                       });
@@ -991,7 +993,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                       color: AppColors.divider,
                     ),
                     // 字体大小
-                    _fontSettingRow(ctx2, c2, '字体大小', rateDisplay, () {
+                    _fontSettingRow(ctx2, c2, ctx2.tr('字体大小'), rateDisplay, () {
                       _showFontRatePicker(ctx2, c2).then((_) {
                         setSheetState(() {});
                       });
@@ -1003,7 +1005,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                       color: AppColors.divider,
                     ),
                     // 字重
-                    _fontSettingRow(ctx2, c2, '字重', '$storedWeight', () {
+                    _fontSettingRow(ctx2, c2, ctx2.tr('字重'), '$storedWeight', () {
                       _showFontWeightPicker(ctx2, c2).then((_) {
                         setSheetState(() {});
                       });
@@ -1100,8 +1102,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                '选择字体',
+              Text(
+                ctx2.tr('选择字体'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -1112,7 +1114,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
               ...fonts.map(
                 (f) => ListTile(
                   title: Text(
-                    f,
+                    ctx2.tr(f),
                     style: TextStyle(
                       color: f == currentLabel
                           ? AppColors.primary
@@ -1180,8 +1182,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      '字体大小',
+                    Text(
+                      context.tr('字体大小'),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -1269,8 +1271,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    '字重',
+                  Text(
+                    context.tr('字重'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -1282,7 +1284,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                     final v = int.parse(w.split(' ')[0]);
                     return ListTile(
                       title: Text(
-                        w,
+                        context.tr(w),
                         style: TextStyle(
                           color: v == current
                               ? AppColors.primary
@@ -1388,7 +1390,10 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
   void _appendToQueue() {
     ref.read(playbackControllerProvider.notifier).appendToQueue([widget.song]);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已加入播放列表'), duration: Duration(seconds: 2)),
+      SnackBar(
+        content: Text(context.tr('已加入播放列表')),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -1398,14 +1403,20 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
           .read(playlistsProvider.notifier)
           .removeSongFromPlaylist('__favorites__', widget.song.id);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已取消收藏'), duration: Duration(seconds: 1)),
+        SnackBar(
+          content: Text(context.tr('已取消收藏')),
+          duration: const Duration(seconds: 1),
+        ),
       );
     } else {
       ref
           .read(playlistsProvider.notifier)
           .addSongToPlaylist('__favorites__', widget.song);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已收藏'), duration: Duration(seconds: 1)),
+        SnackBar(
+          content: Text(context.tr('已收藏')),
+          duration: const Duration(seconds: 1),
+        ),
       );
     }
     _checkFavorited();
@@ -1447,8 +1458,8 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '选择下载音质',
+                Text(
+                  ctx.tr('选择下载音质'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -1491,7 +1502,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${kQualityDescription[q] ?? ''}  ${_estimateSize(q, widget.song.duration)}',
+                    '${ctx.tr(kQualityDescription[q] ?? '')}  ${_estimateSize(q, widget.song.duration)}',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 12,
@@ -1524,11 +1535,11 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('音质 $q 不受当前音源支持，请选择其他音质'),
+              content: Text(context.tr('音质 $q 不受当前音源支持，请选择其他音质')),
               duration: const Duration(seconds: 3),
               backgroundColor: Colors.orange,
               action: SnackBarAction(
-                label: '重新选择',
+                label: context.tr('重新选择'),
                 textColor: Colors.white,
                 onPressed: _showQualityDialog,
               ),
@@ -1540,7 +1551,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('下载失败: $e'),
+            content: Text(context.tr('下载失败: $e')),
             duration: const Duration(seconds: 2),
             backgroundColor: Colors.red,
           ),
@@ -1597,7 +1608,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        '添加到歌单',
+                        ctx.tr('添加到歌单'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -1609,7 +1620,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                         Padding(
                           padding: const EdgeInsets.all(AppSpacing.xl),
                           child: Text(
-                            '暂无歌单',
+                            ctx.tr('暂无歌单'),
                             style: TextStyle(color: AppColors.textHint),
                           ),
                         )
@@ -1625,13 +1636,21 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                               style: TextStyle(color: AppColors.textPrimary),
                             ),
                             trailing: Text(
-                              '${playlist.songCount}首',
+                              ctx.tr('${playlist.songCount}首'),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textHint,
                               ),
                             ),
                             onTap: () async {
+                              // 转换文案需在 pop 之前捕获（ctx 在 pop 后失效）
+                              final addedMsg = ctx.tr(
+                                '已添加到"${playlist.name}"',
+                              );
+                              final existsMsg = ctx.tr(
+                                '歌曲已在歌单"${playlist.name}"中',
+                              );
+                              final failMsg = ctx.tr('添加到歌单失败');
                               Navigator.pop(ctx);
                               // Save messenger and container BEFORE any async gap.
                               // navContext is the root navigator context which remains valid
@@ -1655,16 +1674,14 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                                 if (added) {
                                   messenger.showSnackBar(
                                     SnackBar(
-                                      content: Text('已添加到"${playlist.name}"'),
+                                      content: Text(addedMsg),
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
                                 } else {
                                   messenger.showSnackBar(
                                     SnackBar(
-                                      content: Text(
-                                        '歌曲已在歌单"${playlist.name}"中',
-                                      ),
+                                      content: Text(existsMsg),
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
@@ -1672,7 +1689,7 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
                               } catch (e) {
                                 messenger.showSnackBar(
                                   SnackBar(
-                                    content: const Text('添加到歌单失败'),
+                                    content: Text(failMsg),
                                     duration: const Duration(seconds: 2),
                                     backgroundColor: Colors.red,
                                   ),
@@ -1693,9 +1710,9 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
       loading: () {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('加载歌单中...'),
-              duration: Duration(seconds: 1),
+            SnackBar(
+              content: Text(context.tr('加载歌单中...')),
+              duration: const Duration(seconds: 1),
             ),
           );
         }
@@ -1703,9 +1720,9 @@ class _SongActionSheetState extends ConsumerState<SongActionSheet> {
       error: (_, __) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('加载歌单失败'),
-              duration: Duration(seconds: 2),
+            SnackBar(
+              content: Text(context.tr('加载歌单失败')),
+              duration: const Duration(seconds: 2),
             ),
           );
         }

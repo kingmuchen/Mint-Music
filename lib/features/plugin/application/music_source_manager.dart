@@ -1050,7 +1050,6 @@ class MusicSourceManager {
   List<String> _qualityFallbackChain(
     String requested, {
     List<String>? supported,
-    bool preferKuwoCompatibleQuality = false,
   }) {
     const order = <String>[
       '128k',
@@ -1069,23 +1068,9 @@ class MusicSourceManager {
     final result = <String>[];
 
     void add(String value) {
-      final isKuwoCompatibilityFallback =
-          preferKuwoCompatibleQuality && value == '320k';
-      if ((allowed.contains(value) || isKuwoCompatibilityFallback) &&
-          !result.contains(value)) {
+      if (allowed.contains(value) && !result.contains(value)) {
         result.add(value);
       }
-    }
-
-    // Kuwo may return a valid audio URL for an unrestricted lossless request,
-    // but the media is the "free listening permission" prompt instead of the
-    // requested song.  LX Music and CeruMusic avoid this by normally resolving
-    // a regular MP3 URL first. Keep lossless URLs as retry candidates.
-    if (preferKuwoCompatibleQuality &&
-        requested != '128k' &&
-        requested != '192k' &&
-        requested != '320k') {
-      add('320k');
     }
 
     add(requested);
@@ -1130,10 +1115,7 @@ class MusicSourceManager {
 
   /// 解析一首歌在指定音质下的播放链接候选（与真实播放完全一致的路径）。
   ///
-  /// 播放链接由插件解析，其它内置源负责搜索等元数据；唯独 kw 例外：酷我
-  /// 插件会把 VIP/电台歌的无损请求换成 Q0 加密 mflac、或偶发几秒提示音，
-  /// 因此 kw 源优先用内置 KwMusicSource 解析（含提示音/时长过滤、br 链降
-  /// 级、随机账号重试），插件结果随后追加。
+  /// 播放链接由插件解析，其它内置源负责搜索等元数据。
   /// [pluginHosts] 供插件测试传入被测宿主（隔离或共享），缺省时使用当前
   /// 已启用的插件宿主，保证测试结果与实际播放一致。
   Future<List<PluginMusicUrlResult>> getMusicUrlResultCandidates(
@@ -1149,38 +1131,6 @@ class MusicSourceManager {
     final musicInfo = _buildPluginMusicInfo(song, sourceId);
     final results = <PluginMusicUrlResult>[];
 
-    // Kuwo 插件解析不可靠：VIP/电台歌的无损请求会被换成带 ekey 的 Q0 加密
-    // mflac（实测 320k/flac/flac24bit/atmos/master 全部如此），且部分请求
-    // 会命中 URL 无特征、实际时长只有几秒的提示音，二者都无法被
-    // _isKuwoPromptUrl 的字符串特征可靠拦截。内置 KwMusicSource 解析器自带
-    // 完整防御（拒 .mflac/.mgg/提示音、时长偏差过滤、随机账号重试、br 链
-    // 自动降级 320k/128k），并且与插件走同一 nmobi 车机接口。因此 kw 源把
-    // 内置解析结果作为【首个候选】，插件结果随后追加——既保证插件测试的
-    // 候选探测、也保证真实播放的“候选.first 优先播放”都能拿到可解码、时长
-    // 完整的链接，而不是先播放坏链接再去换源。
-    if (sourceId == 'kw') {
-      final builtIn = _builtInSources['kw'];
-      if (builtIn is KuwoMusicSource) {
-        try {
-          final builtInUrl = await builtIn.getSongUrlWithQuality(
-            song.id,
-            quality: quality,
-            expectedDurationSeconds: song.duration,
-          );
-          final trimmed = builtInUrl?.trim() ?? '';
-          if (trimmed.isNotEmpty &&
-              !_isKuwoPromptUrl(trimmed) &&
-              _isValidAudioUrl(trimmed) &&
-              !excludedUrls.contains(trimmed)) {
-            results.add(PluginMusicUrlResult(url: trimmed, quality: quality));
-            print('[MusicSourceManager] kw 内置解析优先候选: $trimmed');
-          }
-        } catch (e) {
-          print('[MusicSourceManager] kw 内置解析失败: $e');
-        }
-      }
-    }
-
     // An enabled LX plugin is the authoritative resolver because it receives
     // the provider-specific song metadata and requested quality. In
     // particular, Kuwo's legacy endpoint can return HTTP 200 for its
@@ -1194,7 +1144,6 @@ class MusicSourceManager {
           ? _qualityFallbackChain(
               quality,
               supported: _getPluginQualities(host, pluginSourceId),
-              preferKuwoCompatibleQuality: sourceId == 'kw',
             )
           : <String>[quality];
       for (final candidateQuality in qualities) {
@@ -1254,7 +1203,6 @@ class MusicSourceManager {
       supported: host == null || pluginSourceId == null
           ? builtInQualities
           : _getPluginQualities(host, pluginSourceId),
-      preferKuwoCompatibleQuality: sourceId == 'kw',
     );
   }
 

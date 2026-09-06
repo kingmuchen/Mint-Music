@@ -322,7 +322,7 @@ class MusicAudioHandler extends BaseAudioHandler
       }
     }
     if (futures.isNotEmpty) {
-      unawaited(Future.wait(futures));
+      await Future.wait(futures);
     }
 
     for (int i = 0; i < songs.length; i++) {

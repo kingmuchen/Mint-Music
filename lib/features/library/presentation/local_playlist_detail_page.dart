@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../shared/services/playlist_cmpl_codec.dart';
@@ -110,7 +111,7 @@ class _LocalPlaylistDetailPageState
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('排序已保存'),
+        content: Text(context.tr('排序已保存')),
         duration: const Duration(seconds: 1),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -144,7 +145,7 @@ class _LocalPlaylistDetailPageState
                       .firstOrNull;
                   if (playlist == null) {
                     return Center(
-                      child: Text('歌单未找到',
+                      child: Text(context.tr('歌单未找到'),
                           style: TextStyle(color: colors.textHint)),
                     );
                   }
@@ -167,8 +168,8 @@ class _LocalPlaylistDetailPageState
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
                 error: (_, __) => Center(
-                  child: Text('加载失败',
-                      style: TextStyle(color: colors.textHint)),
+                child: Text(context.tr('加载失败'),
+                    style: TextStyle(color: colors.textHint)),
                 ),
               ),
             ),
@@ -212,18 +213,18 @@ class _LocalPlaylistDetailPageState
           Icon(Icons.drag_handle, size: 18, color: colors.primary),
           const SizedBox(width: AppSpacing.sm),
           Text(
-            '拖拽歌曲调整顺序',
+            context.tr('拖拽歌曲调整顺序'),
             style: TextStyle(fontSize: 13, color: colors.primary),
           ),
           const Spacer(),
           TextButton(
             onPressed: _cancelCustomSort,
-            child: Text('取消', style: TextStyle(color: colors.textHint, fontSize: 13)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint, fontSize: 13)),
           ),
           const SizedBox(width: AppSpacing.xs),
           TextButton(
             onPressed: _saveCustomSort,
-            child: Text('保存', style: TextStyle(color: colors.primary, fontSize: 13, fontWeight: FontWeight.w600)),
+            child: Text(context.tr('保存'), style: TextStyle(color: colors.primary, fontSize: 13, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -274,7 +275,7 @@ class _LocalPlaylistDetailPageState
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'edit',
-                    child: Text('编辑歌单',
+                    child: Text(context.tr('编辑歌单'),
                         style: TextStyle(color: colors.textPrimary)),
                   ),
                   PopupMenuItem(
@@ -283,14 +284,14 @@ class _LocalPlaylistDetailPageState
                       children: [
                         Icon(Icons.share, size: 18, color: colors.textSecondary),
                         const SizedBox(width: 8),
-                        Text('分享歌单',
+                        Text(context.tr('分享歌单'),
                             style: TextStyle(color: colors.textPrimary)),
                       ],
                     ),
                   ),
                   PopupMenuItem(
                     value: 'export',
-                    child: Text('导出歌单',
+                    child: Text(context.tr('导出歌单'),
                         style: TextStyle(color: colors.textPrimary)),
                   ),
                 ],
@@ -336,7 +337,7 @@ class _LocalPlaylistDetailPageState
                     ],
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '${playlist.songCount}首歌曲',
+                      context.tr('${playlist.songCount}首歌曲'),
                       style:
                           TextStyle(fontSize: 12, color: colors.textHint),
                     ),
@@ -344,7 +345,7 @@ class _LocalPlaylistDetailPageState
                     Row(
                       children: [
                         _buildActionButton(
-                            colors, Icons.play_arrow, '播放全部', () {
+                            colors, Icons.play_arrow, context.tr('播放全部'), () {
                           if (_sortedSongs.isNotEmpty) {
                             final controller = ref
                                 .read(playbackControllerProvider.notifier);
@@ -352,7 +353,7 @@ class _LocalPlaylistDetailPageState
                           }
                         }),
                         const SizedBox(width: AppSpacing.sm),
-                        _buildActionButton(colors, Icons.shuffle, '随机播放',
+                        _buildActionButton(colors, Icons.shuffle, context.tr('随机播放'),
                             () {
                           if (_sortedSongs.isNotEmpty) {
                             final songs = [..._sortedSongs]..shuffle();
@@ -411,7 +412,7 @@ class _LocalPlaylistDetailPageState
                     child: Row(
                       children: [
                         Text(
-                          '排序方式',
+                          context.tr('排序方式'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -447,7 +448,7 @@ class _LocalPlaylistDetailPageState
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _sortAscending ? '升序' : '降序',
+                                  context.tr(_sortAscending ? '升序' : '降序'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: colors.textSecondary,
@@ -464,28 +465,28 @@ class _LocalPlaylistDetailPageState
                   _buildSortOption(
                     colors: colors,
                     icon: Icons.access_time,
-                    label: '按添加时间',
+                    label: context.tr('按添加时间'),
                     mode: SongSortMode.addedTime,
                     setModalState: setModalState,
                   ),
                   _buildSortOption(
                     colors: colors,
                     icon: Icons.music_note,
-                    label: '按歌曲名',
+                    label: context.tr('按歌曲名'),
                     mode: SongSortMode.title,
                     setModalState: setModalState,
                   ),
                   _buildSortOption(
                     colors: colors,
                     icon: Icons.person,
-                    label: '按歌手名',
+                    label: context.tr('按歌手名'),
                     mode: SongSortMode.artist,
                     setModalState: setModalState,
                   ),
                   _buildSortOption(
                     colors: colors,
                     icon: Icons.drag_handle,
-                    label: '自定义排序',
+                    label: context.tr('自定义排序'),
                     mode: SongSortMode.custom,
                     setModalState: setModalState,
                   ),
@@ -650,7 +651,7 @@ class _LocalPlaylistDetailPageState
             Icon(Icons.music_off,
                 size: 48, color: colors.textHint.withValues(alpha: 0.3)),
             const SizedBox(height: AppSpacing.md),
-            Text('歌单为空', style: TextStyle(color: colors.textHint)),
+            Text(context.tr('歌单为空'), style: TextStyle(color: colors.textHint)),
           ],
         ),
       );
@@ -734,10 +735,10 @@ class _LocalPlaylistDetailPageState
             Icon(Icons.music_off,
                 size: 48, color: colors.textHint.withValues(alpha: 0.3)),
             const SizedBox(height: AppSpacing.md),
-            Text('歌单为空', style: TextStyle(color: colors.textHint)),
+            Text(context.tr('歌单为空'), style: TextStyle(color: colors.textHint)),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '在发现页搜索歌曲并添加到歌单',
+              context.tr('在发现页搜索歌曲并添加到歌单'),
               style: TextStyle(
                   fontSize: 12, color: colors.textHint.withValues(alpha: 0.6)),
             ),
@@ -802,22 +803,22 @@ class _LocalPlaylistDetailPageState
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
         title: Text(
-          '删除歌曲',
+          context.tr('删除歌曲'),
           style: TextStyle(color: colors.textPrimary, fontSize: 16),
         ),
         content: Text(
-          '确定要从歌单「${playlist.name}」中删除《${song.title}》吗？',
+          context.tr('确定要从歌单「${playlist.name}」中删除《${song.title}》吗？'),
           style: TextStyle(color: colors.textSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              '删除',
+              context.tr('删除'),
               style: TextStyle(
                 color: colors.error,
                 fontWeight: FontWeight.w600,
@@ -886,14 +887,14 @@ class _LocalPlaylistDetailPageState
       if (context.mounted) {
         await Share.shareXFiles(
           [XFile(file.path, mimeType: 'application/octet-stream')],
-          text: '分享歌单：${playlist.name}',
+          text: context.tr('分享歌单：${playlist.name}'),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('导出歌单失败：$e'),
+            content: Text(context.tr('导出歌单失败：$e')),
             duration: const Duration(seconds: 3),
             backgroundColor: Colors.red,
           ),
@@ -915,7 +916,7 @@ class _LocalPlaylistDetailPageState
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
         title:
-            Text('编辑歌单', style: TextStyle(color: colors.textPrimary)),
+            Text(context.tr('编辑歌单'), style: TextStyle(color: colors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -923,7 +924,7 @@ class _LocalPlaylistDetailPageState
               controller: nameController,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: '歌单名称',
+                hintText: context.tr('歌单名称'),
                 hintStyle: TextStyle(color: colors.textHint),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: colors.divider),
@@ -938,7 +939,7 @@ class _LocalPlaylistDetailPageState
             TextField(
               controller: descController,
               decoration: InputDecoration(
-                hintText: '歌单描述（可选）',
+                hintText: context.tr('歌单描述（可选）'),
                 hintStyle: TextStyle(color: colors.textHint),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: colors.divider),
@@ -954,7 +955,7 @@ class _LocalPlaylistDetailPageState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
@@ -969,7 +970,7 @@ class _LocalPlaylistDetailPageState
                 Navigator.pop(ctx);
               }
             },
-            child: Text('保存', style: TextStyle(color: colors.primary)),
+            child: Text(context.tr('保存'), style: TextStyle(color: colors.primary)),
           ),
         ],
       ),

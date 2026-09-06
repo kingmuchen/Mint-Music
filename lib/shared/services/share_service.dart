@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../core/l10n/l10n.dart';
 import '../../features/player/domain/models/song.dart';
 import '../../features/library/domain/models/playlist.dart';
 import 'share_poster_generator.dart';
@@ -46,7 +47,7 @@ class ShareService {
     Playlist playlist, {
     PosterTemplate template = PosterTemplate.classic,
   }) async {
-    final text = '【薄荷音乐】分享歌单：${playlist.name}';
+    final text = '【薄荷音乐】${tr('分享歌单')}：${playlist.name}';
 
     Uint8List? coverBytes;
     if (playlist.coverImgUrl.isNotEmpty) {

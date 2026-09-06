@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../shared/widgets/music_cover_image.dart';
@@ -25,11 +26,11 @@ class RecentlyPlayedPage extends ConsumerWidget {
             Expanded(
               child: historyAsync.when(
                 data: (history) => history.isEmpty
-                    ? _buildEmptyState(colors)
+                    ? _buildEmptyState(context, colors)
                     : _buildHistoryList(context, ref, colors, history),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (_, __) => Center(
-                  child: Text('加载失败', style: TextStyle(color: colors.textHint)),
+                  child: Text(context.tr('加载失败'), style: TextStyle(color: colors.textHint)),
                 ),
               ),
             ),
@@ -53,7 +54,7 @@ class RecentlyPlayedPage extends ConsumerWidget {
           ),
           const SizedBox(width: AppSpacing.md),
           Text(
-            '最近播放',
+            context.tr('最近播放'),
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -70,7 +71,7 @@ class RecentlyPlayedPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(ThemeColors colors) {
+  Widget _buildEmptyState(BuildContext context, ThemeColors colors) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -78,12 +79,12 @@ class RecentlyPlayedPage extends ConsumerWidget {
           Icon(Icons.history, size: 64, color: colors.textHint.withValues(alpha: 0.3)),
           const SizedBox(height: AppSpacing.md),
           Text(
-            '暂无播放记录',
+            context.tr('暂无播放记录'),
             style: TextStyle(fontSize: 16, color: colors.textHint),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '播放歌曲后将自动记录',
+            context.tr('播放歌曲后将自动记录'),
             style: TextStyle(fontSize: 13, color: colors.textHint.withValues(alpha: 0.6)),
           ),
         ],
@@ -106,7 +107,7 @@ class RecentlyPlayedPage extends ConsumerWidget {
       itemBuilder: (context, index) {
         final item = history[index];
         final song = item.song as Song;
-        final timeStr = _formatTime(item.playedAt as DateTime);
+        final timeStr = _formatTime(context, item.playedAt as DateTime);
 
         return Dismissible(
           key: Key('history_${song.id}'),
@@ -161,7 +162,7 @@ class RecentlyPlayedPage extends ConsumerWidget {
               children: [
                 if (item.playCount > 1)
                   Text(
-                    '${item.playCount}次',
+                    context.tr('${item.playCount}次'),
                     style: TextStyle(fontSize: 11, color: colors.textHint),
                   ),
                 const SizedBox(width: AppSpacing.xs),
@@ -178,14 +179,14 @@ class RecentlyPlayedPage extends ConsumerWidget {
     );
   }
 
-  String _formatTime(DateTime time) {
+  String _formatTime(BuildContext context, DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
 
-    if (diff.inMinutes < 1) return '刚刚';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-    if (diff.inHours < 24) return '${diff.inHours}小时前';
-    if (diff.inDays < 7) return '${diff.inDays}天前';
+    if (diff.inMinutes < 1) return context.tr('刚刚');
+    if (diff.inMinutes < 60) return context.tr('${diff.inMinutes}分钟前');
+    if (diff.inHours < 24) return context.tr('${diff.inHours}小时前');
+    if (diff.inDays < 7) return context.tr('${diff.inDays}天前');
 
     return '${time.month}/${time.day}';
   }
@@ -195,22 +196,22 @@ class RecentlyPlayedPage extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('清除记录', style: TextStyle(color: colors.textPrimary)),
+        title: Text(context.tr('清除记录'), style: TextStyle(color: colors.textPrimary)),
         content: Text(
-          '确定要清除所有播放记录吗？',
+          context.tr('确定要清除所有播放记录吗？'),
           style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
               ref.read(recentlyPlayedProvider.notifier).clearHistory();
               Navigator.pop(ctx);
             },
-            child: Text('清除', style: TextStyle(color: colors.error)),
+            child: Text(context.tr('清除'), style: TextStyle(color: colors.error)),
           ),
         ],
       ),

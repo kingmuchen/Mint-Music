@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../core/l10n/l10n.dart';
 import '../../features/player/domain/models/song.dart';
 import '../../features/library/domain/models/playlist.dart';
 
@@ -69,7 +70,7 @@ class SharePosterGenerator {
       coverImage = await _decodeImage(coverBytes);
     }
 
-    final qr = qrContent ?? '【薄荷音乐】分享歌单：${playlist.name}';
+    final qr = qrContent ?? '【薄荷音乐】${tr('分享歌单')}：${playlist.name}';
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, _width, _height));
@@ -80,7 +81,7 @@ class SharePosterGenerator {
           canvas: canvas,
           coverImage: coverImage,
           title: playlist.name,
-          subtitle: '${playlist.songCount} 首歌曲',
+          subtitle: tr('${playlist.songCount} 首歌曲'),
           qrContent: qr,
         );
       case PosterTemplate.minimal:
@@ -88,7 +89,7 @@ class SharePosterGenerator {
           canvas: canvas,
           coverImage: coverImage,
           title: playlist.name,
-          subtitle: '${playlist.songCount} 首歌曲',
+          subtitle: tr('${playlist.songCount} 首歌曲'),
           qrContent: qr,
         );
       case PosterTemplate.polaroid:
@@ -96,7 +97,7 @@ class SharePosterGenerator {
           canvas: canvas,
           coverImage: coverImage,
           title: playlist.name,
-          subtitle: '${playlist.songCount} 首歌曲',
+          subtitle: tr('${playlist.songCount} 首歌曲'),
           qrContent: qr,
         );
     }

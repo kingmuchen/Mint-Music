@@ -235,7 +235,7 @@ class LocalMusicRepository {
             source: 'local',
             filePath: filePath,
             sourceUrl: filePath,
-            hasCover: true,
+            hasCover: false,
             coverKey: _genCoverKey(filePath),
             mediaStoreId: audio.id,
             bitrate: _inferBitrateFromExtension(filePath),
@@ -291,12 +291,18 @@ class LocalMusicRepository {
     await _saveIndex();
   }
 
-  Future<void> upsertSong(Song song) async {
-    final existing = _songsMap[song.id];
-    if (existing != null) {
-      _songsMap[song.id] = _mergePreferFilled(existing, song);
-    } else {
+  /// [forceOverwrite] 为 true 时直接覆盖所有字段（用于精准匹配等用户主动操作），
+  /// 为 false 时使用合并策略保留已有非空值（用于批量匹配等自动操作）。
+  Future<void> upsertSong(Song song, {bool forceOverwrite = false}) async {
+    if (forceOverwrite) {
       _songsMap[song.id] = song;
+    } else {
+      final existing = _songsMap[song.id];
+      if (existing != null) {
+        _songsMap[song.id] = _mergePreferFilled(existing, song);
+      } else {
+        _songsMap[song.id] = song;
+      }
     }
     await _saveIndex();
   }

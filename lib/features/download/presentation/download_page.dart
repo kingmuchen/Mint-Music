@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../application/download_providers.dart';
@@ -67,7 +68,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         children: [
           Expanded(
             child: Text(
-              '下载管理',
+              context.tr('下载管理'),
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -80,7 +81,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             _buildActionButton(
               colors,
               icon: Icons.pause_circle,
-              label: '全部暂停',
+              label: context.tr('全部暂停'),
               onTap: () => ref.read(downloadRepositoryProvider).pauseAllTasks(),
             ),
           const SizedBox(width: AppSpacing.sm),
@@ -89,7 +90,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
             _buildActionButton(
               colors,
               icon: Icons.play_circle,
-              label: '全部开始',
+              label: context.tr('全部开始'),
               onTap: () => ref.read(downloadRepositoryProvider).resumeAllTasks(),
             ),
         ],
@@ -142,9 +143,9 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         unselectedLabelStyle: const TextStyle(fontSize: 13),
         dividerColor: Colors.transparent,
         tabs: [
-          Tab(text: '进行中 (${stats.downloading})'),
-          Tab(text: '已完成 (${stats.completed})'),
-          Tab(text: '失败 (${stats.failed})'),
+          Tab(text: context.tr('进行中 (${stats.downloading})')),
+          Tab(text: context.tr('已完成 (${stats.completed})')),
+          Tab(text: context.tr('失败 (${stats.failed})')),
         ],
       ),
     );
@@ -169,12 +170,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
         });
 
         if (activeTasks.isEmpty) {
-          return _buildEmptyState(colors, Icons.download, '暂无进行中的下载');
+          return _buildEmptyState(colors, Icons.download, context.tr('暂无进行中的下载'));
         }
         return _buildTaskList(colors, activeTasks, showProgress: true);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => _buildEmptyState(colors, Icons.error, '加载失败'),
+      error: (_, __) => _buildEmptyState(colors, Icons.error, context.tr('加载失败')),
     );
   }
 
@@ -190,12 +191,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
         if (completedTasks.isEmpty) {
-          return _buildEmptyState(colors, Icons.check_circle, '暂无已完成的下载');
+          return _buildEmptyState(colors, Icons.check_circle, context.tr('暂无已完成的下载'));
         }
         return _buildTaskList(colors, completedTasks);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => _buildEmptyState(colors, Icons.error, '加载失败'),
+      error: (_, __) => _buildEmptyState(colors, Icons.error, context.tr('加载失败')),
     );
   }
 
@@ -213,12 +214,12 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
         if (failedTasks.isEmpty) {
-          return _buildEmptyState(colors, Icons.cancel, '暂无失败的任务');
+          return _buildEmptyState(colors, Icons.cancel, context.tr('暂无失败的任务'));
         }
         return _buildTaskList(colors, failedTasks, showRetry: true);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => _buildEmptyState(colors, Icons.error, '加载失败'),
+      error: (_, __) => _buildEmptyState(colors, Icons.error, context.tr('加载失败')),
     );
   }
 
@@ -325,7 +326,7 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
                     style: TextStyle(fontSize: 11, color: colors.textHint),
                   ),
                   Text(
-                    '${_formatSize(task.downloadedSize)}/${_formatSize(task.totalSize)}  ${_formatRemaining(task.remainingTime)}',
+                    '${_formatSize(task.downloadedSize)}/${_formatSize(task.totalSize)}  ${_formatRemaining(context, task.remainingTime)}',
                     style: TextStyle(fontSize: 11, color: colors.textHint),
                   ),
                 ],
@@ -433,11 +434,11 @@ class _DownloadPageState extends ConsumerState<DownloadPage>
     return '${(bytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
   }
 
-  String _formatRemaining(int? seconds) {
+  String _formatRemaining(BuildContext context, int? seconds) {
     if (seconds == null || seconds <= 0) return '';
     final mins = seconds ~/ 60;
     final secs = seconds % 60;
-    if (mins > 0) return '剩余 ${mins}分${secs}秒';
-    return '剩余 ${secs}秒';
+    if (mins > 0) return context.tr('剩余 ${mins}分${secs}秒');
+    return context.tr('剩余 ${secs}秒');
   }
 }

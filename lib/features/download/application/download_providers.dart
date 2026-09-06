@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../local/application/local_providers.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../plugin/application/plugin_providers.dart';
@@ -71,17 +72,17 @@ final downloadRepositoryProvider = Provider<DownloadRepository>((ref) {
   // 下载通知回调
   repo.onTaskStarted = (task, {backgroundColor}) {
     ref.read(downloadNotificationProvider.notifier).state = DownloadNotification(
-      message: '开始下载 ${task.song.title}',
+      message: tr('开始下载 ${task.song.title}'),
     );
   };
   repo.onTaskCompleted = (task, {backgroundColor}) {
     ref.read(downloadNotificationProvider.notifier).state = DownloadNotification(
-      message: '${task.song.title} 下载完成',
+      message: tr('${task.song.title} 下载完成'),
     );
   };
   repo.onTaskError = (task, error, {backgroundColor}) {
     ref.read(downloadNotificationProvider.notifier).state = DownloadNotification(
-      message: '${task.song.title} 下载失败',
+      message: tr('${task.song.title} 下载失败'),
       backgroundColor: backgroundColor ?? Colors.red,
     );
   };

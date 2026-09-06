@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../../core/l10n/l10n.dart';
 import '../../domain/models/lyric_line.dart';
 
 class LyricScrollView extends StatefulWidget {
@@ -395,7 +396,7 @@ class _LyricScrollViewState extends State<LyricScrollView>
     if (widget.lines.isEmpty) {
       return Center(
         child: Text(
-          '暂无歌词',
+          context.tr('暂无歌词'),
           style: TextStyle(
             fontSize: widget.mainFontSize * 0.6 * rate,
             color: widget.inactiveColor,

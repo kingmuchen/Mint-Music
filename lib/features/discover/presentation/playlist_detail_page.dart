@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../shared/widgets/music_cover_image.dart';
@@ -99,7 +100,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               data: (playlist) {
                 if (playlist == null) {
                   return Center(
-                    child: Text('歌单未找到', style: TextStyle(color: colors.textHint)),
+                    child: Text(context.tr('歌单未找到'), style: TextStyle(color: colors.textHint)),
                   );
                 }
                 return Column(
@@ -114,7 +115,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (_, __) => Center(
-                child: Text('加载失败', style: TextStyle(color: colors.textHint)),
+                child: Text(context.tr('加载失败'), style: TextStyle(color: colors.textHint)),
               ),
             ),
           ),
@@ -217,7 +218,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                     const SizedBox(height: AppSpacing.md),
                     Row(
                       children: [
-                        _buildActionButton(colors, Icons.play_arrow, '播放全部', () {
+                        _buildActionButton(colors, Icons.play_arrow, context.tr('播放全部'), () {
                           _playAll(playlist.songs);
                         }),
                         const SizedBox(width: AppSpacing.md),
@@ -280,7 +281,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             ),
             const SizedBox(width: AppSpacing.xs),
             Text(
-              _isFavorited ? '已收藏' : '收藏',
+              context.tr(_isFavorited ? '已收藏' : '收藏'),
               style: TextStyle(
                 fontSize: 12,
                 color: _isFavorited ? colors.primary : colors.textPrimary,
@@ -308,14 +309,14 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       child: Row(
         children: [
           Text(
-            '已选择 ${_selectedSongIds.length} 首',
+            context.tr('已选择 ${_selectedSongIds.length} 首'),
             style: TextStyle(fontSize: 14, color: colors.textPrimary),
           ),
           const Spacer(),
           TextButton(
             onPressed: () => _selectAllSongs(songs),
             child: Text(
-              _selectedSongIds.length == songs.length ? '取消全选' : '全选',
+              context.tr(_selectedSongIds.length == songs.length ? '取消全选' : '全选'),
               style: TextStyle(color: colors.primary),
             ),
           ),
@@ -327,7 +328,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   Widget _buildSongList(WidgetRef ref, ThemeColors colors, List<Song> songs) {
     if (songs.isEmpty) {
       return Center(
-        child: Text('暂无歌曲', style: TextStyle(color: colors.textHint)),
+        child: Text(context.tr('暂无歌曲'), style: TextStyle(color: colors.textHint)),
       );
     }
 
@@ -434,7 +435,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 _buildMenuItem(
                   colors,
                   icon: Icons.select_all,
-                  label: _isMultiSelectMode ? '取消批量选择' : '批量选择',
+                  label: context.tr(_isMultiSelectMode ? '取消批量选择' : '批量选择'),
                   onTap: () {
                     Navigator.pop(ctx);
                     _toggleMultiSelectMode();
@@ -443,7 +444,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                 _buildMenuItem(
                   colors,
                   icon: Icons.save_alt,
-                  label: '保存到本地',
+                  label: context.tr('保存到本地'),
                   onTap: () {
                     Navigator.pop(ctx);
                     _saveToLocal(playlist);
@@ -512,7 +513,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已收藏到我的歌单'), duration: Duration(seconds: 2)),
+        SnackBar(content: Text(context.tr('已收藏到我的歌单')), duration: Duration(seconds: 2)),
       );
     }
   }
@@ -533,7 +534,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已取消收藏'), duration: Duration(seconds: 2)),
+        SnackBar(content: Text(context.tr('已取消收藏')), duration: Duration(seconds: 2)),
       );
     }
   }
@@ -559,7 +560,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('已保存"${playlist.title}"到本地歌单'),
+          content: Text(context.tr('已保存"${playlist.title}"到本地歌单')),
           duration: const Duration(seconds: 2),
         ),
       );

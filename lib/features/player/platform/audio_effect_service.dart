@@ -65,7 +65,9 @@ class AudioEffectService {
 
   Future<void> _enqueueApply() {
     _pending = _pending.then((_) async {
-      if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      if (kIsWeb ||
+          (defaultTargetPlatform != TargetPlatform.android &&
+           defaultTargetPlatform != TargetPlatform.iOS)) {
         return;
       }
       try {
@@ -74,7 +76,7 @@ class AudioEffectService {
           ..._config.toMap(),
         });
       } on MissingPluginException {
-        // Desktop/test targets do not have the Android channel.
+        // Desktop/test targets do not have the platform channel.
       } catch (error) {
         debugPrint('[AudioEffectService] apply failed: $error');
       }

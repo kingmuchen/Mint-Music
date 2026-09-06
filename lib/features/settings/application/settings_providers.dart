@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/l10n/app_locale.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../data/settings_service.dart';
 
@@ -179,6 +181,24 @@ final autoUpdateProvider = StateProvider<bool>((ref) => true);
 final closeToTrayProvider = StateProvider<bool>((ref) => true);
 final cacheDirProvider = StateProvider<String>((ref) => '');
 
+// -- app language (界面语言) --
+// 参考 Mio-Music 的 AppLocale 设置:默认简体中文,可切换繁体中文。
+final appLocaleProvider = StateProvider<AppLocale>((ref) => AppLocale.zhCn);
+
+/// 歌词语言模式:
+/// - 'follow' 跟随界面语言(默认)
+/// - 'zh-CN' 始终简体
+/// - 'zh-TW' 始终繁体
+final lyricLocaleModeProvider = StateProvider<String>((ref) => 'follow');
+
+/// 实际生效的歌词语言。
+final effectiveLyricLocaleProvider = Provider<AppLocale>((ref) {
+  final mode = ref.watch(lyricLocaleModeProvider);
+  if (mode == 'zh-TW') return AppLocale.zhTw;
+  if (mode == 'zh-CN') return AppLocale.zhCn;
+  return ref.watch(appLocaleProvider);
+});
+
 final downloadDirSizeProvider = FutureProvider<String>((ref) async {
   final svc = await ref.read(settingsServiceProvider.future);
   final dir = ref.read(downloadDirProvider);
@@ -201,7 +221,7 @@ final fullScreenBackgroundModeProvider =
 
 // -- app version (loaded once) --
 final appVersionProvider = FutureProvider<String>((ref) async {
-  return '1.0.4';
+  return '1.0.5';
 });
 
 class EqPreset {
@@ -237,6 +257,13 @@ const kBuiltInPresets = <EqPreset>[
 // -- init: load all persisted settings into providers --
 final settingsInitProvider = FutureProvider<void>((ref) async {
   final svc = await ref.watch(settingsServiceProvider.future);
+
+  // 加载界面语言(默认简体中文)
+  final locale = AppLocale.fromCode(svc.getAppLocale());
+  ref.read(appLocaleProvider.notifier).state = locale;
+  currentLocale = locale;
+  // 加载歌词语言模式
+  ref.read(lyricLocaleModeProvider.notifier).state = svc.getLyricLocaleMode();
 
   final themeStr = svc.getThemeMode();
   if (themeStr == 'light') {

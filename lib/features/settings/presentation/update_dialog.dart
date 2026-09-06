@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../domain/models/update_info.dart';
 
@@ -12,7 +13,7 @@ Future<void> openExternalUrl(BuildContext context, String url) async {
   if (!ok && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('无法打开链接: $url'),
+        content: Text(context.tr('无法打开链接: $url')),
         backgroundColor: Colors.red,
       ),
     );
@@ -33,7 +34,7 @@ Future<void> showUpdateDialog(BuildContext context, UpdateInfo info) async {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '发现新版本 v${info.cleanVersion}',
+              ctx.tr('发现新版本 v${info.cleanVersion}'),
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 17,
@@ -49,14 +50,14 @@ Future<void> showUpdateDialog(BuildContext context, UpdateInfo info) async {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '当前版本：v${AppConstants.appVersion}',
+              ctx.tr('当前版本：v${AppConstants.appVersion}'),
               style: TextStyle(color: colors.textHint, fontSize: 12),
             ),
             const SizedBox(height: 10),
             Text(
               (info.notes?.isNotEmpty ?? false)
                   ? info.notes!
-                  : '请前往下载页面获取最新版本。',
+                  : ctx.tr('请前往下载页面获取最新版本。'),
               style: TextStyle(
                 color: colors.textSecondary,
                 fontSize: 13,
@@ -69,7 +70,7 @@ Future<void> showUpdateDialog(BuildContext context, UpdateInfo info) async {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: Text('稍后', style: TextStyle(color: colors.textHint)),
+          child: Text(ctx.tr('稍后'), style: TextStyle(color: colors.textHint)),
         ),
         TextButton(
           onPressed: () {
@@ -80,7 +81,7 @@ Future<void> showUpdateDialog(BuildContext context, UpdateInfo info) async {
             );
           },
           child: Text(
-            '立即更新',
+            ctx.tr('立即更新'),
             style: TextStyle(color: colors.primary, fontWeight: FontWeight.w600),
           ),
         ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:just_audio/just_audio.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../player/application/string_similarity.dart';
 import '../../player/domain/models/song.dart';
 import '../../player/platform/audio_handler.dart';
@@ -255,10 +256,10 @@ class PluginTestService {
         );
       }
     } on TimeoutException {
-      source.searchError = '搜索超时';
+      source.searchError = tr('搜索超时');
     } catch (e) {
       print('[PluginTest] 搜索失败 source=${source.sourceId}: $e');
-      source.searchError = '搜索失败';
+      source.searchError = tr('搜索失败');
     }
 
     // Long-running/resolver-only LX sources may not implement search at all,
@@ -297,7 +298,7 @@ class PluginTestService {
     }
 
     if (matches.isEmpty) {
-      final reason = source.searchError ?? '未找到匹配曲目';
+      final reason = source.searchError ?? tr('未找到匹配曲目');
       source.matchText = reason;
       for (final quality in source.qualities) {
         quality.status = PluginTestItemStatus.failed;
@@ -310,8 +311,8 @@ class PluginTestService {
 
     source.searchError = null;
     source.matchText =
-        '${usedReferenceSearch ? '参考：' : ''}'
-        '${matches.first.title} - ${matches.first.artist}';
+        tr('${usedReferenceSearch ? '参考：' : ''}'
+        '${matches.first.title} - ${matches.first.artist}');
     source.status = PluginTestSourceStatus.testing;
     onChanged?.call();
 
@@ -343,7 +344,7 @@ class PluginTestService {
 
       // 仅在真正开始解析时才标记为"测试中"，串行下不会被排队。
       quality.status = PluginTestItemStatus.running;
-      quality.note = attempt > 1 ? '重试中…' : null;
+      quality.note = attempt > 1 ? tr('重试中…') : null;
       onChanged?.call();
 
       // 与真实播放完全一致的解析路径：kw 源优先内置解析（含随机账号重试
@@ -362,13 +363,13 @@ class PluginTestService {
               )
               .timeout(_resolveTimeout);
         } on TimeoutException {
-          lastNote = '解析超时';
+          lastNote = tr('解析超时');
         } catch (e) {
           print(
             '[PluginTest] 解析异常 quality=${quality.quality} '
             'attempt=$attempt: $e',
           );
-          lastNote = '解析失败';
+          lastNote = tr('解析失败');
         }
 
         if (candidates.isEmpty) continue;
@@ -378,7 +379,7 @@ class PluginTestService {
           final (ok, note) = await _probePlayable(candidate, match);
           if (ok) {
             quality.status = PluginTestItemStatus.passed;
-            quality.note = attempt > 1 ? '重试后通过' : null;
+            quality.note = attempt > 1 ? tr('重试后通过') : null;
             onChanged?.call();
             return;
           }
@@ -392,7 +393,7 @@ class PluginTestService {
     }
 
     quality.status = PluginTestItemStatus.failed;
-    quality.note = lastNote ?? '无法获取播放链接';
+    quality.note = lastNote ?? tr('无法获取播放链接');
     onChanged?.call();
   }
 
@@ -515,9 +516,9 @@ class PluginTestService {
           .setUrl(resolved.url, headers: headers)
           .timeout(_probeTimeout);
     } on TimeoutException {
-      return (false, '加载超时');
+      return (false, tr('加载超时'));
     } catch (e) {
-      return (false, '播放失败: ${_shortError(e)}');
+      return (false, tr('播放失败: ${_shortError(e)}'));
     }
 
     if (song.source == 'kw') {
@@ -543,7 +544,7 @@ class PluginTestService {
         duration.inSeconds > 0 &&
         duration.inSeconds <= 30) {
       await _stopProbe(player);
-      return (false, '音频仅${duration.inSeconds}秒，疑似试听提示');
+      return (false, tr('音频仅${duration.inSeconds}秒，疑似试听提示'));
     }
 
     // 停止当前播放以备下一个条目复用，但不释放播放器。
@@ -587,6 +588,6 @@ class PluginTestService {
     if (text.length > 40) {
       text = '${text.substring(0, 40)}…';
     }
-    return text.isEmpty ? '未知错误' : text;
+    return text.isEmpty ? tr('未知错误') : text;
   }
 }

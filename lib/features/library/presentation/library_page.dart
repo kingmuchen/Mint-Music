@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/utils/responsive_layout.dart';
@@ -37,11 +38,11 @@ class LibraryPage extends ConsumerWidget {
             Expanded(
               child: playlistsAsync.when(
                 data: (playlists) => playlists.isEmpty
-                    ? _buildEmptyState(colors)
+                    ? _buildEmptyState(context, colors)
                     : _buildPlaylistGrid(context, colors, playlists, ref),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
-                  child: Text('加载失败', style: TextStyle(color: colors.textHint)),
+                  child: Text(context.tr('加载失败'), style: TextStyle(color: colors.textHint)),
                 ),
               ),
             ),
@@ -61,7 +62,7 @@ class LibraryPage extends ConsumerWidget {
       child: Row(
         children: [
           Text(
-            '我的歌单',
+            context.tr('我的歌单'),
             style: TextStyle(
               fontSize: isTablet ? 26 : 22,
               fontWeight: FontWeight.bold,
@@ -104,7 +105,7 @@ class LibraryPage extends ConsumerWidget {
                   Icon(Icons.add, size: 16, color: colors.textOnPrimary),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
-                    '新建歌单',
+                    context.tr('新建歌单'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -137,7 +138,7 @@ class LibraryPage extends ConsumerWidget {
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
-                    '导入',
+                    context.tr('导入'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -153,7 +154,7 @@ class LibraryPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(ThemeColors colors) {
+  Widget _buildEmptyState(BuildContext context, ThemeColors colors) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -164,10 +165,10 @@ class LibraryPage extends ConsumerWidget {
             color: colors.textHint.withValues(alpha: 0.3),
           ),
           const SizedBox(height: AppSpacing.md),
-          Text('还没有歌单', style: TextStyle(fontSize: 16, color: colors.textHint)),
+          Text(context.tr('还没有歌单'), style: TextStyle(fontSize: 16, color: colors.textHint)),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '点击上方"新建歌单"开始创建',
+            context.tr('点击上方"新建歌单"开始创建'),
             style: TextStyle(
               fontSize: 13,
               color: colors.textHint.withValues(alpha: 0.6),
@@ -258,7 +259,7 @@ class LibraryPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${playlist.songCount}首歌曲',
+                    context.tr('${playlist.songCount}首歌曲'),
                     style: TextStyle(fontSize: 11, color: colors.textHint),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -267,7 +268,7 @@ class LibraryPage extends ConsumerWidget {
                     children: [
                       _PlaylistAction(
                         icon: Icons.play_arrow,
-                        label: '播放',
+                        label: context.tr('播放'),
                         color: colors.primary,
                         onTap: () {
                           if (playlist.songs.isNotEmpty) {
@@ -279,14 +280,14 @@ class LibraryPage extends ConsumerWidget {
                       ),
                       _PlaylistAction(
                         icon: Icons.edit,
-                        label: '编辑',
+                        label: context.tr('编辑'),
                         color: colors.textHint,
                         onTap: () =>
                             _showEditDialog(context, colors, ref, playlist),
                       ),
                       _PlaylistAction(
                         icon: Icons.delete,
-                        label: '删除',
+                        label: context.tr('删除'),
                         color: colors.textHint,
                         onTap: () =>
                             _confirmDelete(context, colors, ref, playlist),
@@ -370,7 +371,7 @@ class LibraryPage extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('新建歌单', style: TextStyle(color: colors.textPrimary)),
+        title: Text(context.tr('新建歌单'), style: TextStyle(color: colors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -378,7 +379,7 @@ class LibraryPage extends ConsumerWidget {
               controller: controller,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: '歌单名称',
+                hintText: context.tr('歌单名称'),
                 hintStyle: TextStyle(color: colors.textHint),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: colors.divider),
@@ -393,7 +394,7 @@ class LibraryPage extends ConsumerWidget {
             TextField(
               controller: descController,
               decoration: InputDecoration(
-                hintText: '歌单描述（可选）',
+                hintText: context.tr('歌单描述（可选）'),
                 hintStyle: TextStyle(color: colors.textHint),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: colors.divider),
@@ -409,7 +410,7 @@ class LibraryPage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
@@ -424,7 +425,7 @@ class LibraryPage extends ConsumerWidget {
                 Navigator.pop(ctx);
               }
             },
-            child: Text('创建', style: TextStyle(color: colors.primary)),
+            child: Text(context.tr('创建'), style: TextStyle(color: colors.primary)),
           ),
         ],
       ),
@@ -443,7 +444,7 @@ class LibraryPage extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('编辑歌单', style: TextStyle(color: colors.textPrimary)),
+        title: Text(context.tr('编辑歌单'), style: TextStyle(color: colors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -451,7 +452,7 @@ class LibraryPage extends ConsumerWidget {
               controller: controller,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: '歌单名称',
+                hintText: context.tr('歌单名称'),
                 hintStyle: TextStyle(color: colors.textHint),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: colors.divider),
@@ -466,7 +467,7 @@ class LibraryPage extends ConsumerWidget {
             TextField(
               controller: descController,
               decoration: InputDecoration(
-                hintText: '歌单描述（可选）',
+                hintText: context.tr('歌单描述（可选）'),
                 hintStyle: TextStyle(color: colors.textHint),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: colors.divider),
@@ -482,7 +483,7 @@ class LibraryPage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
@@ -499,7 +500,7 @@ class LibraryPage extends ConsumerWidget {
                 Navigator.pop(ctx);
               }
             },
-            child: Text('保存', style: TextStyle(color: colors.primary)),
+            child: Text(context.tr('保存'), style: TextStyle(color: colors.primary)),
           ),
         ],
       ),
@@ -516,22 +517,22 @@ class LibraryPage extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('删除歌单', style: TextStyle(color: colors.textPrimary)),
+        title: Text(context.tr('删除歌单'), style: TextStyle(color: colors.textPrimary)),
         content: Text(
-          '确定要删除"${playlist.name}"吗？此操作不可撤销。',
+          context.tr('确定要删除"${playlist.name}"吗？此操作不可撤销。'),
           style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
               ref.read(playlistsProvider.notifier).deletePlaylist(playlist.id);
               Navigator.pop(ctx);
             },
-            child: Text('删除', style: TextStyle(color: colors.error)),
+            child: Text(context.tr('删除'), style: TextStyle(color: colors.error)),
           ),
         ],
       ),
@@ -557,7 +558,7 @@ class LibraryPage extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '选择导入方式',
+                context.tr('选择导入方式'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -568,8 +569,8 @@ class LibraryPage extends ConsumerWidget {
               _buildImportOption(
                 colors,
                 Icons.queue_music,
-                '从当前播放列表',
-                '将当前播放列表保存为歌单',
+                context.tr('从当前播放列表'),
+                context.tr('将当前播放列表保存为歌单'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _importFromCurrentPlaylist(context, colors, ref);
@@ -579,8 +580,8 @@ class LibraryPage extends ConsumerWidget {
               _buildImportOption(
                 colors,
                 Icons.folder_open,
-                '从本地歌单文件',
-                '导入 .cmpl/.cpl/.json 歌单文件',
+                context.tr('从本地歌单文件'),
+                context.tr('导入 .cmpl/.cpl/.json 歌单文件'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _importFromLocalFile(context, colors, ref);
@@ -590,9 +591,9 @@ class LibraryPage extends ConsumerWidget {
               _buildImportOption(
                 colors,
                 Icons.language,
-                '从网络歌单',
-                '导入网易云音乐、QQ音乐等平台歌单',
-                subtitle: '实验性功能',
+                context.tr('从网络歌单'),
+                context.tr('导入网易云音乐、QQ音乐等平台歌单'),
+                subtitle: context.tr('实验性功能'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showNetworkImportDialog(context, colors, ref);
@@ -603,7 +604,7 @@ class LibraryPage extends ConsumerWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text('取消', style: TextStyle(color: colors.textHint)),
+                  child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
                 ),
               ),
             ],
@@ -705,7 +706,7 @@ class LibraryPage extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '当前播放列表为空',
+            context.tr('当前播放列表为空'),
             style: TextStyle(color: colors.textOnPrimary),
           ),
           backgroundColor: colors.warning,
@@ -729,7 +730,7 @@ class LibraryPage extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '从播放列表导入',
+                context.tr('从播放列表导入'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -738,7 +739,7 @@ class LibraryPage extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '共 ${queue.length} 首歌曲',
+                context.tr('共 ${queue.length} 首歌曲'),
                 style: TextStyle(fontSize: 13, color: colors.textHint),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -746,7 +747,7 @@ class LibraryPage extends ConsumerWidget {
                 controller: controller,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: '输入歌单名称',
+                  hintText: context.tr('输入歌单名称'),
                   hintStyle: TextStyle(color: colors.textHint),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.md),
@@ -769,7 +770,7 @@ class LibraryPage extends ConsumerWidget {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: Text('取消', style: TextStyle(color: colors.textHint)),
+                    child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   TextButton(
@@ -795,14 +796,14 @@ class LibraryPage extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            '成功从播放列表导入 ${queue.length} 首歌曲',
+                            context.tr('成功从播放列表导入 ${queue.length} 首歌曲'),
                             style: TextStyle(color: colors.textOnPrimary),
                           ),
                           backgroundColor: colors.primary,
                         ),
                       );
                     },
-                    child: Text('导入', style: TextStyle(color: colors.primary)),
+                    child: Text(context.tr('导入'), style: TextStyle(color: colors.primary)),
                   ),
                 ],
               ),
@@ -868,7 +869,7 @@ class LibraryPage extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '导入成功！共导入 ${songs.length} 首歌曲',
+              context.tr('导入成功！共导入 ${songs.length} 首歌曲'),
               style: TextStyle(color: colors.textOnPrimary),
             ),
             backgroundColor: colors.primary,
@@ -880,7 +881,7 @@ class LibraryPage extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '导入失败：${e.toString()}',
+              context.tr('导入失败：${e.toString()}'),
               style: TextStyle(color: colors.textOnPrimary),
             ),
             backgroundColor: colors.error,
@@ -968,26 +969,26 @@ class LibraryPage extends ConsumerWidget {
           switch (selectedPlatform) {
             case 'wy':
               placeholderText =
-                  '支持链接或ID：https://music.163.com/playlist?id=123456789 或 123456789';
+                  context.tr('支持链接或ID：https://music.163.com/playlist?id=123456789 或 123456789');
               break;
             case 'tx':
               placeholderText =
-                  '支持链接或ID：https://y.qq.com/n/ryqq/playlist/123456789 或 123456789';
+                  context.tr('支持链接或ID：https://y.qq.com/n/ryqq/playlist/123456789 或 123456789');
               break;
             case 'kw':
               placeholderText =
-                  '支持链接或ID：http://www.kuwo.cn/playlist_detail/123456789 或 123456789';
+                  context.tr('支持链接或ID：http://www.kuwo.cn/playlist_detail/123456789 或 123456789');
               break;
             case 'kg':
               placeholderText =
-                  '支持链接或酷狗码：https://www.kugou.com/yy/special/single/123456789、m.kugou.com/songlist/gcid_xxx 或 酷狗码 123456789';
+                  context.tr('支持链接或酷狗码：https://www.kugou.com/yy/special/single/123456789、m.kugou.com/songlist/gcid_xxx 或 酷狗码 123456789');
               break;
             case 'mg':
               placeholderText =
-                  '支持链接或ID：https://music.migu.cn/v3/music/playlist/123456789 或 123456789';
+                  context.tr('支持链接或ID：https://music.migu.cn/v3/music/playlist/123456789 或 123456789');
               break;
             default:
-              placeholderText = '请输入歌单链接或ID';
+              placeholderText = context.tr('请输入歌单链接或ID');
           }
 
           return Dialog(
@@ -1003,7 +1004,7 @@ class LibraryPage extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '导入网络歌单',
+                      context.tr('导入网络歌单'),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -1012,7 +1013,7 @@ class LibraryPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
-                      '选择导入平台',
+                      context.tr('选择导入平台'),
                       style: TextStyle(
                         fontSize: 13,
                         color: colors.textSecondary,
@@ -1025,7 +1026,7 @@ class LibraryPage extends ConsumerWidget {
                       children: [
                         _buildPlatformChip(
                           colors,
-                          '网易云音乐',
+                          context.tr('网易云音乐'),
                           'wy',
                           selectedPlatform,
                           () {
@@ -1034,7 +1035,7 @@ class LibraryPage extends ConsumerWidget {
                         ),
                         _buildPlatformChip(
                           colors,
-                          'QQ音乐',
+                          context.tr('QQ音乐'),
                           'tx',
                           selectedPlatform,
                           () {
@@ -1043,7 +1044,7 @@ class LibraryPage extends ConsumerWidget {
                         ),
                         _buildPlatformChip(
                           colors,
-                          '酷我音乐',
+                          context.tr('酷我音乐'),
                           'kw',
                           selectedPlatform,
                           () {
@@ -1052,7 +1053,7 @@ class LibraryPage extends ConsumerWidget {
                         ),
                         _buildPlatformChip(
                           colors,
-                          '酷狗音乐',
+                          context.tr('酷狗音乐'),
                           'kg',
                           selectedPlatform,
                           () {
@@ -1061,7 +1062,7 @@ class LibraryPage extends ConsumerWidget {
                         ),
                         _buildPlatformChip(
                           colors,
-                          '咪咕音乐',
+                          context.tr('咪咕音乐'),
                           'mg',
                           selectedPlatform,
                           () {
@@ -1073,8 +1074,8 @@ class LibraryPage extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.lg),
                     Text(
                       selectedPlatform == 'kg'
-                          ? '请输入酷狗音乐歌单链接、手机版链接或酷狗码，系统将自动识别格式并导入歌单中的所有歌曲到本地歌单。'
-                          : '请输入${_getPlatformName(selectedPlatform)}歌单链接或歌单ID，系统将自动识别格式并导入歌单中的所有歌曲到本地歌单。',
+                          ? context.tr('请输入酷狗音乐歌单链接、手机版链接或酷狗码，系统将自动识别格式并导入歌单中的所有歌曲到本地歌单。')
+                          : context.tr('请输入${_getPlatformName(selectedPlatform)}歌单链接或歌单ID，系统将自动识别格式并导入歌单中的所有歌曲到本地歌单。'),
                       style: TextStyle(fontSize: 12, color: colors.textHint),
                     ),
                     const SizedBox(height: AppSpacing.sm),
@@ -1114,7 +1115,7 @@ class LibraryPage extends ConsumerWidget {
                               vertical: 8,
                             ),
                             child: Text(
-                              '取消',
+                              context.tr('取消'),
                               style: TextStyle(
                                 color: colors.textSecondary,
                                 fontSize: 14,
@@ -1130,7 +1131,7 @@ class LibraryPage extends ConsumerWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    '请输入有效的歌单链接',
+                                    context.tr('请输入有效的歌单链接'),
                                     style: TextStyle(
                                       color: colors.textOnPrimary,
                                     ),
@@ -1159,7 +1160,7 @@ class LibraryPage extends ConsumerWidget {
                             }
                           },
                           child: Text(
-                            '开始导入',
+                            context.tr('开始导入'),
                             style: TextStyle(color: colors.primary),
                           ),
                         ),
@@ -1236,7 +1237,7 @@ class LibraryPage extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '无法识别的${_getPlatformName(platform)}歌单链接',
+              context.tr('无法识别的${_getPlatformName(platform)}歌单链接'),
               style: TextStyle(color: colors.textOnPrimary),
             ),
             backgroundColor: colors.error,
@@ -1268,7 +1269,7 @@ class LibraryPage extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '导入失败：$errorMessage',
+            context.tr('导入失败：$errorMessage'),
             style: TextStyle(color: colors.textOnPrimary),
           ),
           backgroundColor: colors.error,
@@ -1281,7 +1282,7 @@ class LibraryPage extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '获取歌单失败，请检查链接是否正确',
+            context.tr('获取歌单失败，请检查链接是否正确'),
             style: TextStyle(color: colors.textOnPrimary),
           ),
           backgroundColor: colors.error,
@@ -1295,7 +1296,7 @@ class LibraryPage extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '歌单中没有歌曲',
+            context.tr('歌单中没有歌曲'),
             style: TextStyle(color: colors.textOnPrimary),
           ),
           backgroundColor: colors.warning,
@@ -1327,7 +1328,7 @@ class LibraryPage extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '从$platformName导入完成！成功导入 ${songs.length} 首歌曲',
+            context.tr('从$platformName导入完成！成功导入 ${songs.length} 首歌曲'),
             style: TextStyle(color: colors.textOnPrimary),
           ),
           backgroundColor: colors.primary,

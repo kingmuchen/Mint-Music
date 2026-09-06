@@ -269,6 +269,15 @@ class SettingsService {
   bool getCloseToTray() => _prefs.getBool('close_to_tray') ?? true;
   Future<void> setCloseToTray(bool v) => _prefs.setBool('close_to_tray', v);
 
+  // -- app language (界面语言, 参考 Mio-Music 的 AppLocale 设置) --
+  String getAppLocale() => _prefs.getString('app_locale') ?? 'zh-CN';
+  Future<void> setAppLocale(String v) => _prefs.setString('app_locale', v);
+
+  // -- lyric language mode ('follow' 跟随界面 | 'zh-CN' | 'zh-TW') --
+  String getLyricLocaleMode() => _prefs.getString('lyric_locale_mode') ?? 'follow';
+  Future<void> setLyricLocaleMode(String v) =>
+      _prefs.setString('lyric_locale_mode', v);
+
   // -- full screen background mode --
   String getFullScreenBgMode() =>
       _prefs.getString('full_screen_bg_mode') ?? 'theme';

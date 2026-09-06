@@ -9,6 +9,7 @@ import '../domain/models/playback_state.dart';
 import '../domain/models/play_mode.dart';
 import '../platform/audio_handler.dart';
 import '../platform/audio_effect_service.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/services/audio_service_init.dart';
 import '../../library/application/recently_played_providers.dart';
 import '../../plugin/application/music_source_manager.dart';
@@ -16,6 +17,7 @@ import '../../plugin/application/plugin_providers.dart';
 import '../../plugin/domain/plugin_types.dart';
 import '../../settings/application/settings_providers.dart';
 import 'auto_switch_source_service.dart';
+import '../../local/application/local_providers.dart';
 
 final audioHandlerProvider = Provider<MusicAudioHandler>((ref) {
   return audioHandler;
@@ -34,6 +36,10 @@ final playbackControllerProvider =
       );
       controller.onSongPlayed = (song) {
         ref.read(recentlyPlayedProvider.notifier).addToHistory(song);
+      };
+      controller.onSongUpdated = (song) {
+        ref.read(localMusicNotifierProvider.notifier).upsertSong(song);
+        controller.updateSongInQueue(song);
       };
 
       controller.getQualityForSource = (sourceId) {
@@ -197,6 +203,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
   StreamSubscription<int?>? _audioSessionSub;
 
   void Function(Song)? onSongPlayed;
+  void Function(Song)? onSongUpdated;
   void Function(String message, {Color? backgroundColor})? onMessage;
   String Function(String sourceId)? getQualityForSource;
   void Function(Map<String, dynamic> data)? onSavePlaybackState;
@@ -748,10 +755,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
     try {
       Song currentSongToPlay = initialSong;
-      // A previously resolved Kuwo URL may be the provider's permission
-      // prompt. Re-resolve it so the normal MP3 candidate and duration check
-      // can select a real song URL.
-      String? urlToPlay = sourceId == 'kw' ? null : song.sourceUrl;
+      String? urlToPlay = song.sourceUrl;
       var resolvedUrlCandidates = <PluginMusicUrlResult>[];
 
       if (isLocal && urlToPlay != null && urlToPlay.isNotEmpty) {
@@ -772,6 +776,10 @@ class PlaybackController extends StateNotifier<PlaybackState> {
           isLoading: false,
           currentSong: currentSongToPlay,
         );
+        // 同步更新队列中的歌曲，确保本地列表等 UI 显示正确的封面
+        if (!identical(currentSongToPlay, song)) {
+          _replaceSongInQueue(index, currentSongToPlay);
+        }
         onSongPlayed?.call(currentSongToPlay);
         return;
       }
@@ -902,7 +910,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
                 currentSong: fallbackSong,
                 currentQuality: fallbackQuality,
               );
-              onMessage?.call('原播放链接失败，已切换到备用播放链接');
+              onMessage?.call(tr('原播放链接失败，已切换到备用播放链接'));
               onSongPlayed?.call(fallbackSong);
               _errorListenerSub = _mountOneTimeErrorListener(
                 requestId,
@@ -975,7 +983,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
                 // CeruMusic：只有播放成功后（waitForAudioReady/setAudioSource 成功）
                 // 才显示切换成功消息，避免切换消息显示后播放又失败
                 onMessage?.call(
-                  '已自动切换到 ${_getSourceName(candidate.source ?? '')} 源播放',
+                  tr('已自动切换到 ${_getSourceName(candidate.source ?? '')} 源播放'),
                 );
                 _autoNextCount = 0;
                 playSuccess = true;
@@ -1061,7 +1069,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
               await _restoreAndPlay(switchedSong);
 
               onMessage?.call(
-                '已自动切换到 ${_getSourceName(candidate.source ?? '')} 源播放',
+                tr('已自动切换到 ${_getSourceName(candidate.source ?? '')} 源播放'),
               );
               _autoNextCount = 0;
               playSuccess = true;
@@ -1177,7 +1185,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       }
     } catch (e) {
       debugPrint('[PlaybackController] next() error: $e');
-      onMessage?.call('播放下一首失败', backgroundColor: Colors.red);
+      onMessage?.call(tr('播放下一首失败'), backgroundColor: Colors.red);
     }
   }
 
@@ -1207,7 +1215,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       }
     } catch (e) {
       debugPrint('[PlaybackController] previous() error: $e');
-      onMessage?.call('播放上一首失败', backgroundColor: Colors.red);
+      onMessage?.call(tr('播放上一首失败'), backgroundColor: Colors.red);
     }
   }
 
@@ -1425,7 +1433,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       if (result == null || result.url.isEmpty) {
         state = state.copyWith(isLoading: false);
         _finishQualitySwitch(requestId);
-        onMessage?.call('无法获取该音质的播放链接，当前音质保持不变', backgroundColor: Colors.red);
+        onMessage?.call(tr('无法获取该音质的播放链接，当前音质保持不变'), backgroundColor: Colors.red);
         return;
       }
 
@@ -1445,7 +1453,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         currentSong: updatedSong,
       );
       _finishQualitySwitch(requestId);
-      onMessage?.call('已切换到 ${_getQualityDisplayName(quality)}');
+      onMessage?.call(tr('已切换到 ${_getQualityDisplayName(quality)}'));
     } catch (e) {
       if (_currentPlayRequestId != requestId) return;
       // 恢复原音源
@@ -1458,7 +1466,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
       } catch (_) {}
       state = state.copyWith(isLoading: false);
       _finishQualitySwitch(requestId);
-      onMessage?.call('切换音质失败，当前音质保持不变: $e', backgroundColor: Colors.red);
+      onMessage?.call(tr('切换音质失败，当前音质保持不变: $e'), backgroundColor: Colors.red);
     }
   }
 
@@ -1468,6 +1476,33 @@ class PlaybackController extends StateNotifier<PlaybackState> {
     final newQueue = List<Song>.from(state.queue);
     newQueue[index] = newSong;
     state = state.copyWith(queue: newQueue);
+  }
+
+  /// 更新播放队列和当前歌曲的元数据（封面、歌词、标题等）。
+  /// 供自动获取和精准匹配调用，确保 UI 同步刷新。
+  void updateSongInQueue(Song updatedSong) {
+    final currentSong = state.currentSong;
+    if (currentSong == null || currentSong.id != updatedSong.id) return;
+
+    // 更新队列中的歌曲
+    final idx = state.queue.indexWhere((s) => s.id == updatedSong.id);
+    if (idx >= 0) {
+      final newQueue = List<Song>.from(state.queue);
+      newQueue[idx] = updatedSong;
+      state = state.copyWith(
+        queue: newQueue,
+        currentSong: updatedSong,
+        forceCurrentSong: true,
+      );
+    } else {
+      state = state.copyWith(
+        currentSong: updatedSong,
+        forceCurrentSong: true,
+      );
+    }
+
+    // 同步更新通知栏/锁屏封面
+    _audioHandler.updateCurrentMediaItem(updatedSong);
   }
 
   Future<void> _applyResolvedCover({
@@ -1557,7 +1592,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
             isLoading: false,
           );
           onMessage?.call(
-            '已自动切换到 ${_getSourceName(candidate.source ?? '')} 源播放',
+            tr('已自动切换到 ${_getSourceName(candidate.source ?? '')} 源播放'),
           );
           onSongPlayed?.call(switchedSong);
           _errorListenerSub = _mountOneTimeErrorListener(
@@ -1587,18 +1622,20 @@ class PlaybackController extends StateNotifier<PlaybackState> {
 
     // 照搬 CeruMusic：限频/限流时不自动跳转，防止无限循环
     if (reason.contains('频率') || reason.contains('限制')) {
-      onMessage?.call('播放失败：$reason，请稍后重试', backgroundColor: Colors.red);
+      onMessage?.call(tr('播放失败：$reason，请稍后重试'), backgroundColor: Colors.red);
       return;
     }
 
     final limit = _autoNextLimit;
 
-    onMessage?.call('自动跳过当前歌曲：原因：$reason', backgroundColor: Colors.red);
+    onMessage?.call(tr('自动跳过当前歌曲：原因：$reason'), backgroundColor: Colors.red);
 
     if ((_autoNextCount >= limit || _autoNextCount >= 10) &&
         _autoNextCount > 2) {
       onMessage?.call(
-        '自动下一首失败：$_autoNextCount/${limit > 10 ? 10 : limit}次。原因：$reason',
+        tr(
+          '自动下一首失败：$_autoNextCount/${limit > 10 ? 10 : limit}次。原因：$reason',
+        ),
         backgroundColor: Colors.red,
       );
       _autoNextCount = 0;
@@ -1742,7 +1779,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
             currentQuality: resolvedQuality,
             isLoading: false,
           );
-          onMessage?.call('已自动降级到 ${_getQualityDisplayName(resolvedQuality)}');
+          onMessage?.call(tr('已自动降级到 ${_getQualityDisplayName(resolvedQuality)}'));
           return fallbackSong;
         } catch (e) {
           debugPrint(
@@ -1805,7 +1842,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
           isLoading: false,
         );
         onMessage?.call(
-          '原音质播放失败，已降级到 ${_getQualityDisplayName(resolvedQuality)}',
+          tr('原音质播放失败，已降级到 ${_getQualityDisplayName(resolvedQuality)}'),
         );
         return fallbackSong;
       } catch (e) {
@@ -1911,7 +1948,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
             await _resumeFromPosition(resumePosition);
             state = state.copyWith(currentSong: resolved, isLoading: false);
             onMessage?.call(
-              '已重新获取 ${_getSourceName(resolved.source ?? '')} 源 URL，继续播放',
+              tr('已重新获取 ${_getSourceName(resolved.source ?? '')} 源 URL，继续播放'),
             );
             return;
           } catch (_) {
@@ -1973,7 +2010,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
             await _resumeFromPosition(resumePosition);
 
             onMessage?.call(
-              '已自动切换到 ${_getSourceName(candidate.source ?? '')} 源播放',
+              tr('已自动切换到 ${_getSourceName(candidate.source ?? '')} 源播放'),
             );
             state = state.copyWith(currentSong: switchedSong, isLoading: false);
             return;
@@ -1987,7 +2024,7 @@ class PlaybackController extends StateNotifier<PlaybackState> {
         if (state.queue.length <= 1) {
           await _audioHandler.pause();
           state = state.copyWith(isPlaying: false, isLoading: false);
-          onMessage?.call('播放中断，请手动重试', backgroundColor: Colors.orange);
+          onMessage?.call(tr('播放中断，请手动重试'), backgroundColor: Colors.orange);
         } else {
           _tryAutoNext('所有自动换源尝试均失败');
         }

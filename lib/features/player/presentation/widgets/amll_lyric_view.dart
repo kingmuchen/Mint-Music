@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/physics.dart';
+import '../../../../core/l10n/l10n.dart';
 import '../../domain/models/lyric_line.dart';
 
 /// Apple Music 风格原生歌词滚动组件
@@ -375,7 +376,7 @@ class _AmllLyricViewState extends State<AmllLyricView>
     if (widget.lines.isEmpty) {
       return Center(
         child: Text(
-          '暂无歌词',
+          context.tr('暂无歌词'),
           style: TextStyle(
             fontSize: widget.mainFontSize * 0.6,
             color: widget.inactiveColor,

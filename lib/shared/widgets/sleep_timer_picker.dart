@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/l10n/l10n.dart';
 import '../../features/player/application/sleep_timer_provider.dart';
 
 const _sheetAnimationStyle = AnimationStyle(
@@ -34,7 +35,7 @@ class SleepTimerMenuTile extends ConsumerWidget {
             ),
             const SizedBox(width: AppSpacing.md),
             Text(
-              '定时关闭',
+              context.tr('定时关闭'),
               style: TextStyle(
                 fontSize: 15,
                 color: sleep.active ? AppColors.primary : AppColors.textPrimary,
@@ -123,8 +124,8 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              '定时关闭',
+            Text(
+              context.tr('定时关闭'),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -144,7 +145,9 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '剩余 ${formatSleepTimerRemaining(sleep.remaining)} 后自动暂停',
+                    context.tr(
+                      '剩余 ${formatSleepTimerRemaining(sleep.remaining)} 后自动暂停',
+                    ),
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.primary,
@@ -154,11 +157,11 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
               ),
             ],
             const SizedBox(height: 12),
-            _timerOption(ctx: context, label: '15分钟', duration: const Duration(minutes: 15)),
-            _timerOption(ctx: context, label: '30分钟', duration: const Duration(minutes: 30)),
-            _timerOption(ctx: context, label: '60分钟', duration: const Duration(minutes: 60)),
-            _timerOption(ctx: context, label: '90分钟', duration: const Duration(minutes: 90)),
-            _timerOption(ctx: context, label: '关闭', duration: Duration.zero),
+            _timerOption(ctx: context, label: context.tr('15分钟'), duration: const Duration(minutes: 15)),
+            _timerOption(ctx: context, label: context.tr('30分钟'), duration: const Duration(minutes: 30)),
+            _timerOption(ctx: context, label: context.tr('60分钟'), duration: const Duration(minutes: 60)),
+            _timerOption(ctx: context, label: context.tr('90分钟'), duration: const Duration(minutes: 90)),
+            _timerOption(ctx: context, label: context.tr('关闭'), duration: Duration.zero),
             const Divider(height: 1, indent: 16, endIndent: 16),
             // 自定义输入
             Padding(
@@ -179,12 +182,12 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                       onChanged: (_) {
                         if (_errorText != null) setState(() => _errorText = null);
                       },
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: '0',
-                        labelText: '时',
+                        labelText: context.tr('时'),
                         isDense: true,
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 8,
                         ),
@@ -204,12 +207,12 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                       onChanged: (_) {
                         if (_errorText != null) setState(() => _errorText = null);
                       },
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: '30',
-                        labelText: '分',
+                        labelText: context.tr('分'),
                         isDense: true,
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 8,
                         ),
@@ -224,7 +227,9 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                       final total = h * 60 + m;
                       if (total > _maxMinutes) {
                         setState(() {
-                          _errorText = '自定义时长不能超过${_maxMinutes ~/ 60}小时';
+                          _errorText = context.tr(
+                            '自定义时长不能超过${_maxMinutes ~/ 60}小时',
+                          );
                         });
                         return;
                       }
@@ -233,7 +238,7 @@ class _SleepTimerPickerSheetState extends ConsumerState<_SleepTimerPickerSheet> 
                         Navigator.pop(context);
                       }
                     },
-                    child: const Text('确定'),
+                    child: Text(context.tr('确定')),
                   ),
                 ],
               ),

@@ -9,6 +9,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/l10n/app_locale.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/utils/responsive_layout.dart';
@@ -185,7 +187,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       child: Row(
         children: [
           Text(
-            '设置',
+            context.tr('设置'),
             style: TextStyle(
               fontSize: isTablet ? 26 : 22,
               fontWeight: FontWeight.bold,
@@ -249,7 +251,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            config.label,
+                            context.tr(config.label),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: isActive
@@ -341,7 +343,7 @@ class _SettingGroup extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            context.tr(title),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -351,7 +353,7 @@ class _SettingGroup extends StatelessWidget {
           if (subtitle != null) ...[
             const SizedBox(height: 4),
             Text(
-              subtitle!,
+              context.tr(subtitle!),
               style: TextStyle(fontSize: 12, color: colors.textHint),
             ),
           ],
@@ -394,12 +396,12 @@ class _SettingRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    context.tr(title),
                     style: TextStyle(fontSize: 14, color: colors.textPrimary),
                   ),
                   if (subtitle != null)
                     Text(
-                      subtitle!,
+                      context.tr(subtitle!),
                       style: TextStyle(fontSize: 12, color: colors.textHint),
                     ),
                 ],
@@ -460,7 +462,7 @@ void _showBottomPicker(
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  title,
+                  context.tr(title),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -471,7 +473,7 @@ void _showBottomPicker(
                 ...options.map(
                   (o) => ListTile(
                     title: Text(
-                      o,
+                      context.tr(o),
                       style: TextStyle(
                         fontSize: 15,
                         color: o == current
@@ -510,6 +512,18 @@ Color _parseHexColor(String hex) {
   }
 }
 
+/// 歌词语言模式值(follow / zh-CN / zh-TW)对应的显示名。
+String _lyricLocaleModeLabel(String mode) {
+  switch (mode) {
+    case 'zh-CN':
+      return '简体中文';
+    case 'zh-TW':
+      return '繁體中文';
+    default:
+      return '跟随界面';
+  }
+}
+
 // ==================== Appearance ====================
 
 class _AppearanceContent extends ConsumerWidget {
@@ -534,6 +548,8 @@ class _AppearanceContent extends ConsumerWidget {
   ) {
     final themeMode = ref.watch(themeModeProvider);
     final themeName = themeMode == ThemeMode.light ? '浅色主题' : '深色主题';
+    final appLocale = ref.watch(appLocaleProvider);
+    final lyricLocaleMode = ref.watch(lyricLocaleModeProvider);
     final primaryHex = ref.watch(themePrimaryColorProvider);
     final presetColors = [
       ('#1DB954', 'Spotify 绿'),
@@ -560,7 +576,7 @@ class _AppearanceContent extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                themeName,
+                context.tr(themeName),
                 style: TextStyle(fontSize: 13, color: colors.textHint),
               ),
               const SizedBox(width: 4),
@@ -608,6 +624,78 @@ class _AppearanceContent extends ConsumerWidget {
           onTap: () =>
               _showThemeColorPicker(context, colors, presetColors, primaryHex),
         ),
+        _SettingDivider(colors: colors),
+        _SettingRow(
+          icon: Icons.language,
+          title: '界面语言',
+          subtitle: '选择界面显示语言',
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.tr(appLocale.label),
+                style: TextStyle(fontSize: 13, color: colors.textHint),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, size: 18, color: colors.textHint),
+            ],
+          ),
+          colors: colors,
+          onTap: () => _showBottomPicker(
+            context,
+            colors,
+            '界面语言',
+            AppLocale.values.map((e) => e.label).toList(),
+            appLocale.label,
+            (v) {
+              final container = ProviderScope.containerOf(context);
+              final locale = AppLocale.values.firstWhere(
+                (e) => e.label == v,
+                orElse: () => AppLocale.zhCn,
+              );
+              container.read(appLocaleProvider.notifier).state = locale;
+              unawaited(
+                _doPersist(container, (s) => s.setAppLocale(locale.code)),
+              );
+            },
+          ),
+        ),
+        _SettingDivider(colors: colors),
+        _SettingRow(
+          icon: Icons.lyrics,
+          title: '歌词语言模式',
+          subtitle: '中文歌词的显示语言',
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.tr(_lyricLocaleModeLabel(lyricLocaleMode)),
+                style: TextStyle(fontSize: 13, color: colors.textHint),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, size: 18, color: colors.textHint),
+            ],
+          ),
+          colors: colors,
+          onTap: () => _showBottomPicker(
+            context,
+            colors,
+            '歌词语言模式',
+            ['跟随界面', '简体中文', '繁體中文'],
+            _lyricLocaleModeLabel(lyricLocaleMode),
+            (v) {
+              final mode = v == '跟随界面'
+                  ? 'follow'
+                  : (v == '简体中文' ? 'zh-CN' : 'zh-TW');
+              _persistString(
+                context,
+                lyricLocaleModeProvider,
+                mode,
+                (s) => s.setLyricLocaleMode(mode),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -644,7 +732,7 @@ class _AppearanceContent extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                '选择主题色',
+                context.tr('选择主题色'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -734,7 +822,7 @@ class _AppearanceContent extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                currentLabel,
+                context.tr(currentLabel),
                 style: TextStyle(fontSize: 13, color: colors.textHint),
               ),
               const SizedBox(width: 4),
@@ -992,7 +1080,7 @@ class _PlaybackContent extends ConsumerWidget {
               TextButton(
                 onPressed: () => _resetEqualizer(context),
                 child: Text(
-                  '重置',
+                  context.tr('重置'),
                   style: TextStyle(fontSize: 12, color: colors.textSecondary),
                 ),
               ),
@@ -1009,7 +1097,7 @@ class _PlaybackContent extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                eqPreset,
+                context.tr(eqPreset),
                 style: TextStyle(fontSize: 13, color: colors.textHint),
               ),
               const SizedBox(width: 4),
@@ -1081,7 +1169,7 @@ class _PlaybackContent extends ConsumerWidget {
                   foregroundColor: colors.primary,
                   side: BorderSide(color: colors.primary),
                 ),
-                child: Text('保存预设'),
+                child: Text(context.tr('保存预设')),
               ),
             ),
             const SizedBox(width: 8),
@@ -1092,7 +1180,7 @@ class _PlaybackContent extends ConsumerWidget {
                   foregroundColor: colors.textSecondary,
                   side: BorderSide(color: colors.divider),
                 ),
-                child: Text('导出配置'),
+                child: Text(context.tr('导出配置')),
               ),
             ),
             const SizedBox(width: 8),
@@ -1103,7 +1191,7 @@ class _PlaybackContent extends ConsumerWidget {
                   foregroundColor: colors.textSecondary,
                   side: BorderSide(color: colors.divider),
                 ),
-                child: Text('导入配置'),
+                child: Text(context.tr('导入配置')),
               ),
             ),
           ],
@@ -1120,7 +1208,7 @@ class _PlaybackContent extends ConsumerWidget {
                     foregroundColor: colors.primary,
                     side: BorderSide(color: colors.primary),
                   ),
-                  child: Text('保存到当前预设'),
+                  child: Text(context.tr('保存到当前预设')),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1132,7 +1220,7 @@ class _PlaybackContent extends ConsumerWidget {
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
                   ),
-                  child: Text('删除预设'),
+                  child: Text(context.tr('删除预设')),
                 ),
               ),
             ],
@@ -1229,11 +1317,11 @@ class _PlaybackContent extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('保存为新预设', style: TextStyle(color: colors.textPrimary)),
+        title: Text(context.tr('保存为新预设'), style: TextStyle(color: colors.textPrimary)),
         content: TextField(
           controller: controller,
           decoration: InputDecoration(
-            hintText: '输入预设名称',
+            hintText: context.tr('输入预设名称'),
             hintStyle: TextStyle(color: colors.textHint),
             enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: colors.divider),
@@ -1247,7 +1335,7 @@ class _PlaybackContent extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
@@ -1256,7 +1344,7 @@ class _PlaybackContent extends ConsumerWidget {
               Navigator.pop(ctx);
               _saveNewPreset(context, name);
             },
-            child: Text('保存', style: TextStyle(color: colors.primary)),
+            child: Text(context.tr('保存'), style: TextStyle(color: colors.primary)),
           ),
         ],
       ),
@@ -1268,7 +1356,7 @@ class _PlaybackContent extends ConsumerWidget {
     if (kBuiltInPresets.any((p) => p.name == name)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('"$name" 是内置预设名称'),
+          content: Text(context.tr('"$name" 是内置预设名称')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1280,7 +1368,7 @@ class _PlaybackContent extends ConsumerWidget {
     if (customPresets.any((p) => p['name'] == name)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('预设 "$name" 已存在'),
+          content: Text(context.tr('预设 "$name" 已存在')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1304,7 +1392,7 @@ class _PlaybackContent extends ConsumerWidget {
       }),
     );
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('预设保存成功'), backgroundColor: Colors.green),
+      SnackBar(content: Text(context.tr('预设保存成功')), backgroundColor: Colors.green),
     );
   }
 
@@ -1333,7 +1421,7 @@ class _PlaybackContent extends ConsumerWidget {
     );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已保存当前值到预设 "$presetName"'),
+        content: Text(context.tr('已保存当前值到预设 "$presetName"')),
         backgroundColor: Colors.green,
       ),
     );
@@ -1347,12 +1435,12 @@ class _PlaybackContent extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除预设'),
-        content: Text('确定要删除预设 "$presetName" 吗？'),
+        title: Text(context.tr('删除预设')),
+        content: Text(context.tr('确定要删除预设 "$presetName" 吗？')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           TextButton(
             onPressed: () {
@@ -1375,12 +1463,12 @@ class _PlaybackContent extends ConsumerWidget {
               );
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('预设 "$presetName" 已删除'),
+                  content: Text(context.tr('预设 "$presetName" 已删除')),
                   backgroundColor: Colors.green,
                 ),
               );
             },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: Text(context.tr('删除'), style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1401,12 +1489,12 @@ class _PlaybackContent extends ConsumerWidget {
       await File('${dir.path}/mintmusic_eq_config.json').writeAsString(data);
       if (context.mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('均衡器配置已导出'), backgroundColor: colors.primary),
+          SnackBar(content: Text(context.tr('均衡器配置已导出')), backgroundColor: colors.primary),
         );
     } catch (e) {
       if (context.mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.tr('导出失败: $e')), backgroundColor: Colors.red),
         );
     }
   }
@@ -1465,12 +1553,12 @@ class _PlaybackContent extends ConsumerWidget {
       }
       if (context.mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('均衡器配置导入成功'), backgroundColor: colors.primary),
+          SnackBar(content: Text(context.tr('均衡器配置导入成功')), backgroundColor: colors.primary),
         );
     } catch (e) {
       if (context.mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.tr('导入失败: $e')), backgroundColor: Colors.red),
         );
     }
   }
@@ -1516,7 +1604,7 @@ class _PlaybackContent extends ConsumerWidget {
               TextButton(
                 onPressed: () => _resetAudioEffects(context),
                 child: Text(
-                  '重置全部',
+                  context.tr('重置全部'),
                   style: TextStyle(fontSize: 12, color: colors.textSecondary),
                 ),
               ),
@@ -1577,7 +1665,7 @@ class _PlaybackContent extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  bassPresetLabels[bassBoostPreset] ?? bassBoostPreset,
+                  context.tr(bassPresetLabels[bassBoostPreset] ?? bassBoostPreset),
                   style: TextStyle(fontSize: 13, color: colors.textHint),
                 ),
                 const SizedBox(width: 4),
@@ -1640,7 +1728,7 @@ class _PlaybackContent extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  surroundLabels[surroundMode] ?? surroundMode,
+                  context.tr(surroundLabels[surroundMode] ?? surroundMode),
                   style: TextStyle(fontSize: 13, color: colors.textHint),
                 ),
                 const SizedBox(width: 4),
@@ -1759,7 +1847,7 @@ class _PlaybackContent extends ConsumerWidget {
                 (s) => s.setBalanceValue(0.0),
               ),
               child: Text(
-                '居中校准',
+                context.tr('居中校准'),
                 style: TextStyle(fontSize: 12, color: colors.primary),
               ),
             ),
@@ -1949,7 +2037,7 @@ class _MusicSourceContent extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    currentQualityDisplay,
+                    context.tr(currentQualityDisplay),
                     style: TextStyle(fontSize: 13, color: colors.textHint),
                   ),
                   const SizedBox(width: 4),
@@ -1993,7 +2081,7 @@ class _MusicSourceContent extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    globalQualityDisplay,
+                    context.tr(globalQualityDisplay),
                     style: TextStyle(fontSize: 13, color: colors.textHint),
                   ),
                   const SizedBox(width: 4),
@@ -2066,7 +2154,7 @@ class _MusicSourceContent extends ConsumerWidget {
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('已将所有音源音质设置为 $globalQualityDisplay'),
+                      content: Text(context.tr('已将所有音源音质设置为 $globalQualityDisplay')),
                       backgroundColor: colors.primary,
                     ),
                   );
@@ -2079,7 +2167,7 @@ class _MusicSourceContent extends ConsumerWidget {
                     vertical: 4,
                   ),
                 ),
-                child: Text('应用'),
+                child: Text(context.tr('应用')),
               ),
               colors: colors,
             ),
@@ -2110,7 +2198,7 @@ class _MusicSourceContent extends ConsumerWidget {
               title: '音质',
               subtitle: currentQualityDisplay,
               trailing: Text(
-                currentQualityDisplay,
+                context.tr(currentQualityDisplay),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -2129,7 +2217,7 @@ class _MusicSourceContent extends ConsumerWidget {
                     subtitle:
                         '音质: ${getQualityDisplayName(sourceQuality[src] ?? "320k")}',
                     trailing: Text(
-                      getQualityDisplayName(sourceQuality[src] ?? '320k'),
+                      context.tr(getQualityDisplayName(sourceQuality[src] ?? '320k')),
                       style: TextStyle(
                         fontSize: 12,
                         color: colors.textSecondary,
@@ -2182,7 +2270,7 @@ class _StorageContent extends ConsumerWidget {
       colors: colors,
       children: [
         Text(
-          '缓存目录',
+          context.tr('缓存目录'),
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -2191,7 +2279,7 @@ class _StorageContent extends ConsumerWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '用于存储歌曲缓存文件，提高播放速度',
+          context.tr('用于存储歌曲缓存文件，提高播放速度'),
           style: TextStyle(fontSize: 12, color: colors.textHint),
         ),
         const SizedBox(height: 8),
@@ -2207,7 +2295,7 @@ class _StorageContent extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  cacheDir.isEmpty ? '未设置' : cacheDir,
+                  cacheDir.isEmpty ? context.tr('未设置') : cacheDir,
                   style: TextStyle(fontSize: 13, color: colors.textPrimary),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2261,7 +2349,7 @@ class _StorageContent extends ConsumerWidget {
                   foregroundColor: colors.primary,
                   side: BorderSide(color: colors.primary),
                 ),
-                child: Text('选择目录'),
+                child: Text(context.tr('选择目录')),
               ),
             ),
             const SizedBox(width: 8),
@@ -2272,14 +2360,14 @@ class _StorageContent extends ConsumerWidget {
                   foregroundColor: colors.textSecondary,
                   side: BorderSide(color: colors.divider),
                 ),
-                child: Text('打开目录'),
+                child: Text(context.tr('打开目录')),
               ),
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          '下载目录',
+          context.tr('下载目录'),
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -2288,7 +2376,7 @@ class _StorageContent extends ConsumerWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '用于存储下载的音乐文件',
+          context.tr('用于存储下载的音乐文件'),
           style: TextStyle(fontSize: 12, color: colors.textHint),
         ),
         const SizedBox(height: 8),
@@ -2359,7 +2447,7 @@ class _StorageContent extends ConsumerWidget {
                   foregroundColor: colors.primary,
                   side: BorderSide(color: colors.primary),
                 ),
-                child: Text('选择目录'),
+                child: Text(context.tr('选择目录')),
               ),
             ),
             const SizedBox(width: 8),
@@ -2370,7 +2458,7 @@ class _StorageContent extends ConsumerWidget {
                   foregroundColor: colors.textSecondary,
                   side: BorderSide(color: colors.divider),
                 ),
-                child: Text('打开目录'),
+                child: Text(context.tr('打开目录')),
               ),
             ),
           ],
@@ -2385,7 +2473,7 @@ class _StorageContent extends ConsumerWidget {
                   foregroundColor: colors.textSecondary,
                   side: BorderSide(color: colors.divider),
                 ),
-                child: Text('重置为默认'),
+                child: Text(context.tr('重置为默认')),
               ),
             ),
           ],
@@ -2423,15 +2511,15 @@ class _StorageContent extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors_surface(context).surface,
-        title: Text('重置目录设置', style: TextStyle(color: text_primary(context))),
+        title: Text(context.tr('重置目录设置'), style: TextStyle(color: text_primary(context))),
         content: Text(
-          '确定要重置为默认目录吗？这将清除当前的自定义目录设置。',
+          context.tr('确定要重置为默认目录吗？这将清除当前的自定义目录设置。'),
           style: TextStyle(color: text_secondary(context)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: text_hint(context))),
+            child: Text(context.tr('取消'), style: TextStyle(color: text_hint(context))),
           ),
           TextButton(
             onPressed: () async {
@@ -2452,13 +2540,13 @@ class _StorageContent extends ConsumerWidget {
               if (context.mounted)
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('已重置为默认目录'),
+                    content: Text(context.tr('已重置为默认目录')),
                     backgroundColor: Theme.of(context).primaryColor,
                   ),
                 );
             },
             child: Text(
-              '确定重置',
+              context.tr('确定重置'),
               style: TextStyle(color: Theme.of(context).primaryColor),
             ),
           ),
@@ -2491,7 +2579,7 @@ class _StorageContent extends ConsumerWidget {
         Row(
           children: [
             Text(
-              '已有歌曲缓存大小：',
+              context.tr('已有歌曲缓存大小：'),
               style: TextStyle(fontSize: 13, color: colors.textSecondary),
             ),
             Text(
@@ -2515,7 +2603,7 @@ class _StorageContent extends ConsumerWidget {
               side: BorderSide(color: colors.divider),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            child: Text('清除本地缓存'),
+            child: Text(context.tr('清除本地缓存')),
           ),
         ),
         _SettingDivider(colors: colors),
@@ -2545,22 +2633,22 @@ class _StorageContent extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('清除缓存', style: TextStyle(color: colors.textPrimary)),
+        title: Text(context.tr('清除缓存'), style: TextStyle(color: colors.textPrimary)),
         content: Text(
-          '确定要清除所有缓存吗？这将删除临时文件和播放历史。',
+          context.tr('确定要清除所有缓存吗？这将删除临时文件和播放历史。'),
           style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(context.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _clearCache(context);
             },
-            child: Text('确定', style: TextStyle(color: colors.primary)),
+            child: Text(context.tr('确定'), style: TextStyle(color: colors.primary)),
           ),
         ],
       ),
@@ -2598,12 +2686,12 @@ class _StorageContent extends ConsumerWidget {
           spacing: 12,
           runSpacing: 8,
           children: [
-            _buildTemplateTag(colors, '%t', '歌曲名称'),
-            _buildTemplateTag(colors, '%s', '歌手'),
-            _buildTemplateTag(colors, '%a', '专辑'),
-            _buildTemplateTag(colors, '%u', '平台'),
-            _buildTemplateTag(colors, '%q', '音质'),
-            _buildTemplateTag(colors, '%d', '日期'),
+            _buildTemplateTag(colors, '%t', context.tr('歌曲名称')),
+            _buildTemplateTag(colors, '%s', context.tr('歌手')),
+            _buildTemplateTag(colors, '%a', context.tr('专辑')),
+            _buildTemplateTag(colors, '%u', context.tr('平台')),
+            _buildTemplateTag(colors, '%q', context.tr('音质')),
+            _buildTemplateTag(colors, '%d', context.tr('日期')),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
@@ -2623,7 +2711,7 @@ class _StorageContent extends ConsumerWidget {
           },
           style: TextStyle(fontSize: 14, color: colors.textPrimary),
           decoration: InputDecoration(
-            hintText: '文件名格式',
+            hintText: context.tr('文件名格式'),
             hintStyle: TextStyle(color: colors.textHint),
             filled: true,
             fillColor: colors.background,
@@ -2657,7 +2745,7 @@ class _StorageContent extends ConsumerWidget {
           child: Row(
             children: [
               Text(
-                '预览：',
+                context.tr('预览：'),
                 style: TextStyle(fontSize: 13, color: colors.textSecondary),
               ),
               Expanded(
@@ -2812,12 +2900,12 @@ class _StorageContent extends ConsumerWidget {
           child: Row(
             children: [
               Text(
-                '当前配置：',
+                context.tr('当前配置：'),
                 style: TextStyle(fontSize: 13, color: colors.textSecondary),
               ),
               Expanded(
                 child: Text(
-                  statusText,
+                  context.tr(statusText),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -2938,7 +3026,7 @@ class _AboutContentState extends ConsumerState<_AboutContent> {
     if (info == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('检查更新失败，请稍后重试'),
+          content: Text(context.tr('检查更新失败，请稍后重试')),
           backgroundColor: colors.error,
         ),
       );
@@ -2947,7 +3035,7 @@ class _AboutContentState extends ConsumerState<_AboutContent> {
     if (!UpdateService.isNewerVersion(info.version, AppConstants.appVersion)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('已是最新版本'),
+          content: Text(context.tr('已是最新版本')),
           backgroundColor: colors.primary,
         ),
       );
@@ -3034,7 +3122,7 @@ class _AboutContentState extends ConsumerState<_AboutContent> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '薄荷音乐',
+                    context.tr('薄荷音乐'),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -3043,7 +3131,7 @@ class _AboutContentState extends ConsumerState<_AboutContent> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Mint Music 是一个跨平台的音乐播放器应用，支持基于合规插件获取公开音乐信息与播放功能。',
+                    context.tr('Mint Music 是一个跨平台的音乐播放器应用，支持基于合规插件获取公开音乐信息与播放功能。'),
                     style: TextStyle(
                       fontSize: 13,
                       color: colors.textSecondary,
@@ -3170,7 +3258,7 @@ class _AboutContentState extends ConsumerState<_AboutContent> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    item.$2,
+                    context.tr(item.$2),
                     style: TextStyle(fontSize: 12, color: colors.textSecondary),
                   ),
                 ],
@@ -3222,7 +3310,7 @@ class _AboutContentState extends ConsumerState<_AboutContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            context.tr(title),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -3231,7 +3319,7 @@ class _AboutContentState extends ConsumerState<_AboutContent> {
           ),
           const SizedBox(height: 4),
           Text(
-            content,
+            context.tr(content),
             style: TextStyle(
               fontSize: 12,
               color: colors.textSecondary,
@@ -3249,7 +3337,7 @@ class _AboutContentState extends ConsumerState<_AboutContent> {
     if (!ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('无法打开链接: $url'),
+          content: Text(context.tr('无法打开链接: $url')),
           backgroundColor: Colors.red,
         ),
       );

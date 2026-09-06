@@ -154,10 +154,10 @@ class LocalMusicNotifier extends StateNotifier<AsyncValue<List<Song>>> {
     }
   }
 
-  Future<void> upsertSong(Song song) async {
+  Future<void> upsertSong(Song song, {bool forceOverwrite = false}) async {
     try {
       final repo = _ref.read(localMusicRepositoryProvider);
-      await repo.upsertSong(song);
+      await repo.upsertSong(song, forceOverwrite: forceOverwrite);
       state = AsyncValue.data(repo.getLocalSongs());
     } catch (e, st) {
       state = AsyncValue.error(e, st);

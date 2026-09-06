@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../application/plugin_providers.dart';
@@ -20,7 +21,7 @@ class PluginManagementPage extends ConsumerStatefulWidget {
   static String pluginErrorMessage(Object error) {
     final text = error.toString().replaceFirst('Exception: ', '');
     if (text.contains('Stack Overflow') || text.contains('stack overflow')) {
-      return '插件加载失败：插件脚本过大导致 JS 引擎栈溢出，请更换精简版插件';
+      return tr('插件加载失败：插件脚本过大导致 JS 引擎栈溢出，请更换精简版插件');
     }
     return text;
   }
@@ -55,7 +56,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
     final pluginService = ref.read(pluginServiceProvider);
     _updateNoticeSubscription = pluginService.updateNoticeStream.listen((notice) {
       if (!mounted) return;
-      final pluginName = notice['pluginName'] as String? ?? '未知插件';
+      final pluginName = notice['pluginName'] as String? ?? tr('未知插件');
       final pluginVersion = notice['pluginVersion'] as String? ?? '';
       final pluginId = notice['pluginId'] as String? ?? '';
       final data = notice['data'];
@@ -105,7 +106,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
             const Icon(Icons.system_update, color: Color(0xFF4CAF50), size: 24),
             const SizedBox(width: AppSpacing.sm),
             Text(
-              '插件更新',
+              ctx.tr('插件更新'),
               style: TextStyle(color: colors.textPrimary, fontSize: 16),
             ),
           ],
@@ -137,7 +138,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                           ),
                         ),
                         Text(
-                          '当前版本 v$pluginVersion',
+                          ctx.tr('当前版本 v$pluginVersion'),
                           style: TextStyle(
                             fontSize: 12,
                             color: colors.textHint,
@@ -161,7 +162,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('关闭', style: TextStyle(color: colors.textHint)),
+            child: Text(ctx.tr('关闭'), style: TextStyle(color: colors.textHint)),
           ),
           if (updateUrl != null && updateUrl.isNotEmpty)
             TextButton(
@@ -169,9 +170,9 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                 Navigator.pop(ctx);
                 _openUpdateUrl(updateUrl);
               },
-              child: const Text(
-                '前往更新',
-                style: TextStyle(
+              child: Text(
+                ctx.tr('前往更新'),
+                style: const TextStyle(
                   color: Color(0xFF4CAF50),
                   fontWeight: FontWeight.w600,
                 ),
@@ -217,7 +218,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
     debugPrint('[PluginManagementPage] Showing ${pending.length} buffered update notices');
     // Show dialogs sequentially with a small delay between each.
     for (final notice in pending) {
-      final pluginName = notice['pluginName'] as String? ?? '未知插件';
+      final pluginName = notice['pluginName'] as String? ?? tr('未知插件');
       final pluginVersion = notice['pluginVersion'] as String? ?? '';
       final data = notice['data'];
       String log = '';
@@ -290,7 +291,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          '插件管理',
+          context.tr('插件管理'),
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 18,
@@ -311,7 +312,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
             IconButton(
               icon: Icon(Icons.refresh, color: colors.primary),
               onPressed: _checkAllUpdates,
-              tooltip: '检查更新',
+              tooltip: context.tr('检查更新'),
             ),
           IconButton(
             icon: Icon(Icons.add, color: colors.primary),
@@ -338,11 +339,11 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
             children: [
               Icon(Icons.error_outline, size: 48, color: colors.textHint),
               const SizedBox(height: AppSpacing.md),
-              Text('加载失败', style: TextStyle(color: colors.textHint)),
+              Text(context.tr('加载失败'), style: TextStyle(color: colors.textHint)),
               const SizedBox(height: AppSpacing.sm),
               TextButton(
                 onPressed: () => ref.invalidate(pluginsProvider),
-                child: Text('重试', style: TextStyle(color: colors.primary)),
+                child: Text(context.tr('重试'), style: TextStyle(color: colors.primary)),
               ),
             ],
           ),
@@ -371,7 +372,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            '暂无插件',
+            context.tr('暂无插件'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -380,7 +381,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '点击右上角 + 添加音源插件',
+            context.tr('点击右上角 + 添加音源插件'),
             style: TextStyle(fontSize: 13, color: colors.textHint),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -393,7 +394,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                 borderRadius: BorderRadius.circular(AppRadius.full),
               ),
               child: Text(
-                '添加插件',
+                context.tr('添加插件'),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -497,7 +498,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              typeLabel,
+                              context.tr(typeLabel),
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
@@ -517,7 +518,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '可更新 v${updateResult.remoteVersion}',
+                                context.tr('可更新 v${updateResult.remoteVersion}'),
                                 style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
@@ -601,19 +602,21 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                 Icon(Icons.access_time, size: 14, color: colors.textHint),
                 const SizedBox(width: 4),
                 Text(
-                  '${plugin.installTime.year}/${plugin.installTime.month.toString().padLeft(2, '0')}/${plugin.installTime.day.toString().padLeft(2, '0')} 安装',
+                  context.tr(
+                    '${plugin.installTime.year}/${plugin.installTime.month.toString().padLeft(2, '0')}/${plugin.installTime.day.toString().padLeft(2, '0')} 安装',
+                  ),
                   style: TextStyle(fontSize: 11, color: colors.textHint),
                 ),
                 const Spacer(),
                 if (updateResult != null)
                   GestureDetector(
                     onTap: () => _showUpdateDialog(colors, updateResult),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.md,
                       ),
                       child: Text(
-                        '更新',
+                        context.tr('更新'),
                         style: TextStyle(
                           fontSize: 12,
                           color: Color(0xFF4CAF50),
@@ -632,7 +635,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                         horizontal: AppSpacing.md,
                       ),
                       child: Text(
-                        '插件测试',
+                        context.tr('插件测试'),
                         style: TextStyle(fontSize: 12, color: colors.primary),
                       ),
                     ),
@@ -644,7 +647,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                       horizontal: AppSpacing.md,
                     ),
                     child: Text(
-                      '卸载',
+                      context.tr('卸载'),
                       style: TextStyle(fontSize: 12, color: colors.error),
                     ),
                   ),
@@ -706,7 +709,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
         title: Text(
-          '卸载插件',
+          ctx.tr('卸载插件'),
           style: TextStyle(color: colors.textPrimary, fontSize: 16),
         ),
         content: Column(
@@ -714,7 +717,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '确定要卸载以下插件吗？',
+              ctx.tr('确定要卸载以下插件吗？'),
               style: TextStyle(color: colors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -755,7 +758,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '卸载后将删除插件文件，此操作不可撤销。',
+              ctx.tr('卸载后将删除插件文件，此操作不可撤销。'),
               style: TextStyle(fontSize: 12, color: colors.textHint),
             ),
           ],
@@ -763,16 +766,18 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(ctx.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
               ref.read(pluginsProvider.notifier).uninstallPlugin(plugin.id);
+              // 转换文案需在 pop 之前捕获（ctx 在 pop 后失效）
+              final msg = ctx.tr('插件${plugin.name}卸载成功');
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    '插件${plugin.name}卸载成功',
+                    msg,
                     style: TextStyle(color: colors.textOnPrimary),
                   ),
                   backgroundColor: colors.primary,
@@ -781,7 +786,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
               );
             },
             child: Text(
-              '卸载',
+              ctx.tr('卸载'),
               style: TextStyle(
                 color: colors.error,
                 fontWeight: FontWeight.w600,
@@ -806,7 +811,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
             const Icon(Icons.system_update, color: Color(0xFF4CAF50), size: 24),
             const SizedBox(width: AppSpacing.sm),
             Text(
-              '插件更新',
+              ctx.tr('插件更新'),
               style: TextStyle(color: colors.textPrimary, fontSize: 16),
             ),
           ],
@@ -840,7 +845,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
                         Text(
                           result.remoteVersion != null && result.remoteVersion != 'latest'
                               ? 'v${result.plugin.version} → v${result.remoteVersion}'
-                              : 'v${result.plugin.version} → 可更新',
+                              : ctx.tr('v${result.plugin.version} → 可更新'),
                           style: TextStyle(
                             fontSize: 12,
                             color: const Color(0xFF4CAF50),
@@ -875,8 +880,8 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
             const SizedBox(height: AppSpacing.md),
             Text(
               result.remoteVersion != null && result.remoteVersion != 'latest'
-                  ? '发现新版本 v${result.remoteVersion}，是否更新？'
-                  : '插件有新版本可用，是否更新？',
+                  ? ctx.tr('发现新版本 v${result.remoteVersion}，是否更新？')
+                  : ctx.tr('插件有新版本可用，是否更新？'),
               style: TextStyle(color: colors.textSecondary, fontSize: 14),
             ),
           ],
@@ -884,16 +889,16 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('取消', style: TextStyle(color: colors.textHint)),
+            child: Text(ctx.tr('取消'), style: TextStyle(color: colors.textHint)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _applyUpdate(result);
             },
-            child: const Text(
-              '更新',
-              style: TextStyle(
+            child: Text(
+              ctx.tr('更新'),
+              style: const TextStyle(
                 color: Color(0xFF4CAF50),
                 fontWeight: FontWeight.w600,
               ),
@@ -911,7 +916,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
     // Show loading
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('正在更新 ${result.plugin.name}...'),
+        content: Text(context.tr('正在更新 ${result.plugin.name}...')),
         backgroundColor: colors.primary,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -943,7 +948,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '"${newPlugin.name} v${newPlugin.version}" 更新成功',
+              context.tr('"${newPlugin.name} v${newPlugin.version}" 更新成功'),
               style: TextStyle(color: colors.textOnPrimary),
             ),
             backgroundColor: const Color(0xFF4CAF50),
@@ -958,7 +963,7 @@ class _PluginManagementPageState extends ConsumerState<PluginManagementPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '更新失败: ${PluginManagementPage.pluginErrorMessage(e)}',
+              context.tr('更新失败: ${PluginManagementPage.pluginErrorMessage(e)}'),
             ),
             backgroundColor: colors.error,
             behavior: SnackBarBehavior.floating,
@@ -1014,7 +1019,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              '添加插件',
+              context.tr('添加插件'),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -1023,7 +1028,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              '支持澜音(cr)和洛雪(lx)格式的JS插件',
+              context.tr('支持澜音(cr)和洛雪(lx)格式的JS插件'),
               style: TextStyle(fontSize: 12, color: colors.textHint),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -1048,7 +1053,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
                           ),
                         ),
                         child: Text(
-                          '从文件导入',
+                          context.tr('从文件导入'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,
@@ -1079,7 +1084,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
                           ),
                         ),
                         child: Text(
-                          '从URL下载',
+                          context.tr('从URL下载'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,
@@ -1101,13 +1106,13 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
               child: Row(
                 children: [
                   Text(
-                    '插件类型：',
+                    context.tr('插件类型：'),
                     style: TextStyle(fontSize: 13, color: colors.textSecondary),
                   ),
                   const SizedBox(width: AppSpacing.md),
-                  _buildTypeChip('澜音 (cr)', 'cr', colors),
+                  _buildTypeChip(context.tr('澜音 (cr)'), 'cr', colors),
                   const SizedBox(width: AppSpacing.sm),
-                  _buildTypeChip('洛雪 (lx)', 'lx', colors),
+                  _buildTypeChip(context.tr('洛雪 (lx)'), 'lx', colors),
                 ],
               ),
             ),
@@ -1170,15 +1175,19 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  '选择 ${_pluginType == 'lx' ? '洛雪' : '澜音'} 格式的 .js 插件文件',
+                  context.tr(
+                    '选择 ${_pluginType == 'lx' ? '洛雪' : '澜音'} 格式的 .js 插件文件',
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: colors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  _pluginType == 'cr'
-                      ? '代码中需包含 cerumusic 关键字'
-                      : '代码中需包含 lx 关键字',
+                  context.tr(
+                    _pluginType == 'cr'
+                        ? '代码中需包含 cerumusic 关键字'
+                        : '代码中需包含 lx 关键字',
+                  ),
                   style: TextStyle(fontSize: 11, color: colors.textHint),
                 ),
               ],
@@ -1190,7 +1199,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
             child: ElevatedButton.icon(
               onPressed: _isLoading ? null : _handleFileImport,
               icon: const Icon(Icons.folder_open, size: 18),
-              label: const Text('选择文件'),
+              label: Text(context.tr('选择文件')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.primary,
                 foregroundColor: colors.textOnPrimary,
@@ -1215,7 +1224,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
             controller: _urlController,
             style: TextStyle(fontSize: 14, color: colors.textPrimary),
             decoration: InputDecoration(
-              hintText: '输入插件JS文件的URL地址',
+              hintText: context.tr('输入插件JS文件的URL地址'),
               hintStyle: TextStyle(fontSize: 13, color: colors.textHint),
               prefixIcon: Icon(Icons.link, color: colors.textHint, size: 20),
               suffixIcon: _urlController.text.isNotEmpty
@@ -1232,7 +1241,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
                         color: colors.primary,
                         size: 18,
                       ),
-                      tooltip: '粘贴链接',
+                      tooltip: context.tr('粘贴链接'),
                       onPressed: _pasteFromClipboard,
                     ),
               filled: true,
@@ -1255,7 +1264,9 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '支持 HTTP/HTTPS 链接和 GitHub 仓库链接，将自动下载并校验插件格式',
+            context.tr(
+              '支持 HTTP/HTTPS 链接和 GitHub 仓库链接，将自动下载并校验插件格式',
+            ),
             style: TextStyle(fontSize: 11, color: colors.textHint),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -1273,7 +1284,9 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
                       ),
                     )
                   : const Icon(Icons.cloud_download, size: 18),
-              label: Text(_isLoading ? '下载中...' : '下载并安装'),
+              label: Text(
+                _isLoading ? context.tr('下载中...') : context.tr('下载并安装'),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.primary,
                 foregroundColor: colors.textOnPrimary,
@@ -1299,7 +1312,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('"${plugin.name} v${plugin.version}" 安装成功'),
+            content: Text(context.tr('"${plugin.name} v${plugin.version}" 安装成功')),
             backgroundColor: widget.colors.primary,
             behavior: SnackBarBehavior.floating,
           ),
@@ -1337,7 +1350,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
     if (url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('请输入URL地址'),
+          content: Text(context.tr('请输入URL地址')),
           backgroundColor: widget.colors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -1349,7 +1362,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('请输入有效的HTTP/HTTPS链接'),
+          content: Text(context.tr('请输入有效的HTTP/HTTPS链接')),
           backgroundColor: widget.colors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -1366,7 +1379,7 @@ class _AddPluginSheetState extends State<_AddPluginSheet> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('"${plugin.name} v${plugin.version}" 安装成功'),
+            content: Text(context.tr('"${plugin.name} v${plugin.version}" 安装成功')),
             backgroundColor: widget.colors.primary,
             behavior: SnackBarBehavior.floating,
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../features/player/domain/models/song.dart';
@@ -67,7 +68,7 @@ class SongListItem extends ConsumerWidget {
               _buildCover(colors, ref),
             ],
             const SizedBox(width: AppSpacing.sm),
-            Expanded(child: _buildSongInfo(colors)),
+            Expanded(child: _buildSongInfo(colors, context)),
             if (showDuration) _buildDuration(colors),
             if (showMenuButton) _buildMenuButton(colors, context),
           ],
@@ -120,7 +121,7 @@ class SongListItem extends ConsumerWidget {
     );
   }
 
-  Widget _buildSongInfo(ThemeColors colors) {
+  Widget _buildSongInfo(ThemeColors colors, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -138,8 +139,9 @@ class SongListItem extends ConsumerWidget {
         const SizedBox(height: 2),
         Row(
           children: [
-            if (showQuality) _buildQualityTag(colors),
-            if (showSource && song.source != null) _buildSourceTag(colors),
+            if (showQuality) _buildQualityTag(colors, context),
+            if (showSource && song.source != null)
+              _buildSourceTag(colors, context),
             Expanded(
               child: Text(
                 song.artist,
@@ -154,7 +156,7 @@ class SongListItem extends ConsumerWidget {
     );
   }
 
-  Widget _buildQualityTag(ThemeColors colors) {
+  Widget _buildQualityTag(ThemeColors colors, BuildContext context) {
     final quality = _getHighestQuality();
     if (quality == null) return const SizedBox.shrink();
 
@@ -166,7 +168,7 @@ class SongListItem extends ConsumerWidget {
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(
-        quality,
+        context.tr(quality),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
@@ -176,7 +178,7 @@ class SongListItem extends ConsumerWidget {
     );
   }
 
-  Widget _buildSourceTag(ThemeColors colors) {
+  Widget _buildSourceTag(ThemeColors colors, BuildContext context) {
     final sourceName = _getSourceName(song.source!);
     return Container(
       margin: const EdgeInsets.only(right: 4),
@@ -186,7 +188,7 @@ class SongListItem extends ConsumerWidget {
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(
-        sourceName,
+        context.tr(sourceName),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,

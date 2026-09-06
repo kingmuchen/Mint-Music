@@ -1,5 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/l10n/app_locale.dart';
+import '../../../core/l10n/han_converter.dart';
+import '../../../core/l10n/l10n.dart';
+import '../../settings/application/settings_providers.dart';
 import '../domain/models/song.dart';
 import '../domain/models/lyric_line.dart';
 import '../domain/models/playback_state.dart';
@@ -52,8 +56,66 @@ class LyricController extends StateNotifier<LyricState> {
   int _requestId = 0;
   static const Duration _lyricFetchTimeout = Duration(seconds: 10);
 
+  /// 当前歌词语言。由 [applyLyricLocale] 设置(初始值来自
+  /// effectiveLyricLocaleProvider),繁体时对歌词做简->繁转换。
+  AppLocale _locale = AppLocale.zhCn;
+
+  /// 最近一次解析出的简体原始歌词行,切换语言时据此重建,
+  /// 避免繁体状态下无法还原回简体。
+  List<LyricLine>? _rawLines;
+
   LyricController(this._musicSourceManager, this._ttmlDbService)
     : super(const LyricState());
+
+  /// 歌词语言变化时调用:只重跑转换,不重新拉取/解析歌词。
+  void applyLyricLocale(AppLocale locale) {
+    if (locale == _locale) return;
+    _locale = locale;
+    final raw = _rawLines;
+    if (raw == null || state.currentSongId == null) return;
+    state = state.copyWith(lines: _convertLines(raw));
+  }
+
+  /// 繁体语言下对歌词行做简->繁转换;简体时原样返回。
+  List<LyricLine> _convertLines(List<LyricLine> lines) {
+    if (_locale != AppLocale.zhTw) return lines;
+    return lines.map(_convertLine).toList(growable: false);
+  }
+
+  LyricLine _convertLine(LyricLine line) {
+    // 整句先转换一次(词组语境准确,如 后->後、干->乾),再按各
+    // word 的字符数切片回填,逐字时间轴保持不变。
+    final convertedPlain = HanConverter.s2t(line.plainText);
+    return line.copyWith(
+      words: _convertWordsBySlice(line.words, convertedPlain),
+      translatedLyric: line.translatedLyric == null
+          ? null
+          : HanConverter.s2t(line.translatedLyric!),
+      adLibText: line.adLibText == null ? null : HanConverter.s2t(line.adLibText!),
+    );
+  }
+
+  List<LyricWord> _convertWordsBySlice(
+    List<LyricWord> words,
+    String convertedPlain,
+  ) {
+    final totalLen = words.fold<int>(0, (sum, w) => sum + w.word.length);
+    // 罕见情况下(非常用字符)转换前后长度可能不一致,退化为逐词转换。
+    if (totalLen != convertedPlain.length) {
+      return [
+        for (final w in words)
+          w.copyWith(word: HanConverter.s2t(w.word)),
+      ];
+    }
+    final result = <LyricWord>[];
+    var offset = 0;
+    for (final w in words) {
+      final len = w.word.length;
+      result.add(w.copyWith(word: convertedPlain.substring(offset, offset + len)));
+      offset += len;
+    }
+    return result;
+  }
 
   Future<void> loadLyrics(Song? song) async {
     if (song == null) {
@@ -171,8 +233,9 @@ class LyricController extends StateNotifier<LyricState> {
 
           final hasYrc = ttmlLines.any((line) => line.isYrc);
 
+          _rawLines = ttmlLines;
           state = LyricState(
-            lines: ttmlLines,
+            lines: _convertLines(ttmlLines),
             currentSongId: song.id,
             hasYrc: hasYrc,
           );
@@ -188,7 +251,7 @@ class LyricController extends StateNotifier<LyricState> {
 
       if ((lrc == null || lrc.isEmpty) &&
           (crlyric == null || crlyric.isEmpty)) {
-        state = LyricState(error: '暂无歌词', currentSongId: song.id);
+        state = LyricState(error: tr('暂无歌词'), currentSongId: song.id);
         return;
       }
 
@@ -233,7 +296,7 @@ class LyricController extends StateNotifier<LyricState> {
       if (requestId != _requestId) return;
 
       if (parsedLines.isEmpty) {
-        state = LyricState(error: '歌词解析失败', currentSongId: song.id);
+        state = LyricState(error: tr('歌词解析失败'), currentSongId: song.id);
         return;
       }
 
@@ -241,8 +304,9 @@ class LyricController extends StateNotifier<LyricState> {
 
       final hasYrc = parsedLines.any((line) => line.isYrc);
 
+      _rawLines = parsedLines;
       state = LyricState(
-        lines: parsedLines,
+        lines: _convertLines(parsedLines),
         currentSongId: song.id,
         hasYrc: hasYrc,
       );
@@ -250,7 +314,7 @@ class LyricController extends StateNotifier<LyricState> {
       debugPrint('[LyricController] Error loading lyrics: $e');
       debugPrint('[LyricController] Stack: $stack');
       if (requestId != _requestId) return;
-      state = LyricState(error: '加载歌词失败: $e', currentSongId: song.id);
+      state = LyricState(error: tr('加载歌词失败: $e'), currentSongId: song.id);
     }
   }
 
@@ -265,6 +329,7 @@ final lyricControllerProvider = StateNotifierProvider<LyricController, LyricStat
   final musicSourceManager = ref.watch(musicSourceManagerProvider);
   final ttmlDbService = ref.watch(ttmlDbServiceProvider);
   final controller = LyricController(musicSourceManager, ttmlDbService);
+  controller.applyLyricLocale(ref.read(effectiveLyricLocaleProvider));
 
   ref.listen<PlaybackState>(playbackControllerProvider, (previous, next) {
     if (next.currentSong?.id != previous?.currentSong?.id) {
@@ -273,6 +338,11 @@ final lyricControllerProvider = StateNotifierProvider<LyricController, LyricStat
       );
       Future.microtask(() => controller.loadLyrics(next.currentSong));
     }
+  });
+
+  // 歌词语言(跟随界面/简体/繁体)变化时只重跑繁简转换。
+  ref.listen<AppLocale>(effectiveLyricLocaleProvider, (previous, next) {
+    controller.applyLyricLocale(next);
   });
 
   return controller;

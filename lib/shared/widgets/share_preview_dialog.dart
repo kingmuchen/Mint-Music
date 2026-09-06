@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../features/player/domain/models/song.dart';
 import '../../features/library/domain/models/playlist.dart';
@@ -106,11 +107,14 @@ class _SharePreviewDialogState extends State<SharePreviewDialog> {
   void _copyText() {
     final text = widget.song != null
         ? '【薄荷音乐】${widget.song!.title} - ${widget.song!.artist}${_playUrl(widget.song!)}'
-        : '【薄荷音乐】分享歌单：${widget.playlist!.name}';
+        : '【薄荷音乐】${context.tr('分享歌单')}：${widget.playlist!.name}';
     Clipboard.setData(ClipboardData(text: text));
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板'), duration: Duration(seconds: 2)),
+      SnackBar(
+        content: Text(context.tr('已复制到剪贴板')),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -163,7 +167,7 @@ class _SharePreviewDialogState extends State<SharePreviewDialog> {
 
   Widget _buildTitle() {
     return Text(
-      '分享到',
+      context.tr('分享到'),
       style: const TextStyle(
         color: AppColors.textPrimary,
         fontSize: 18,
@@ -190,13 +194,16 @@ class _SharePreviewDialogState extends State<SharePreviewDialog> {
           color: AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.broken_image_outlined, color: AppColors.textHint, size: 40),
-              SizedBox(height: 8),
-              Text('海报生成失败', style: TextStyle(color: AppColors.textSecondary)),
+              const Icon(Icons.broken_image_outlined, color: AppColors.textHint, size: 40),
+              const SizedBox(height: 8),
+              Text(
+                context.tr('海报生成失败'),
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
             ],
           ),
         ),
@@ -234,7 +241,7 @@ class _SharePreviewDialogState extends State<SharePreviewDialog> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                _templateLabel(t),
+                context.tr(_templateLabel(t)),
                 style: TextStyle(
                   color: selected ? AppColors.textOnPrimary : AppColors.textSecondary,
                   fontSize: 13,
@@ -255,7 +262,7 @@ class _SharePreviewDialogState extends State<SharePreviewDialog> {
           child: OutlinedButton.icon(
             onPressed: _copyText,
             icon: const Icon(Icons.copy, size: 18),
-            label: const Text('复制文本'),
+            label: Text(context.tr('复制文本')),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
               side: const BorderSide(color: AppColors.divider),
@@ -271,7 +278,7 @@ class _SharePreviewDialogState extends State<SharePreviewDialog> {
           child: FilledButton.icon(
             onPressed: _share,
             icon: const Icon(Icons.share, size: 18),
-            label: const Text('分享图片'),
+            label: Text(context.tr('分享图片')),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.textOnPrimary,

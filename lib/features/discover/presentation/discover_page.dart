@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/utils/responsive_layout.dart';
@@ -56,8 +57,8 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
       final status = await Permission.notification.request();
       if (!status.isGranted && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('请开启通知权限以使用后台播放功能'),
+          SnackBar(
+            content: Text(context.tr('请开启通知权限以使用后台播放功能')),
             duration: Duration(seconds: 3),
           ),
         );
@@ -146,7 +147,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
       child: Row(
         children: [
           Text(
-            '发现音乐',
+            context.tr('发现音乐'),
             style: TextStyle(
               fontSize: isTablet ? 26 : 22,
               fontWeight: FontWeight.bold,
@@ -191,7 +192,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
-                      '搜索音乐、歌手...',
+                      context.tr('搜索音乐、歌手...'),
                       style: TextStyle(color: colors.textHint, fontSize: 14),
                     ),
                   ),
@@ -214,7 +215,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
       child: Row(
         children: [
           _buildTabChip(
-            label: '歌单',
+            label: context.tr('歌单'),
             isActive: currentTab == DiscoverTab.playlists,
             colors: colors,
             onTap: () => ref.read(discoverTabProvider.notifier).state =
@@ -222,7 +223,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
           ),
           const SizedBox(width: AppSpacing.sm),
           _buildTabChip(
-            label: '排行榜',
+            label: context.tr('排行榜'),
             isActive: currentTab == DiscoverTab.leaderboards,
             colors: colors,
             onTap: () => ref.read(discoverTabProvider.notifier).state =
@@ -493,7 +494,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                         color: colors.textHint,
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      Text('暂无歌单数据', style: TextStyle(color: colors.textHint)),
+                      Text(context.tr('暂无歌单数据'), style: TextStyle(color: colors.textHint)),
                       const SizedBox(height: AppSpacing.md),
                       TextButton(
                         onPressed: () {
@@ -507,7 +508,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                                 reset: true,
                               );
                         },
-                        child: const Text('重试'),
+                        child: Text(context.tr('重试')),
                       ),
                     ],
                   ),
@@ -522,7 +523,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                 children: [
                   Icon(Icons.error_outline, size: 48, color: colors.textHint),
                   const SizedBox(height: AppSpacing.md),
-                  Text('加载失败', style: TextStyle(color: colors.textHint)),
+                  Text(context.tr('加载失败'), style: TextStyle(color: colors.textHint)),
                   const SizedBox(height: AppSpacing.md),
                   TextButton(
                     onPressed: () {
@@ -536,7 +537,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                             reset: true,
                           );
                     },
-                    child: const Text('重试'),
+                    child: Text(context.tr('重试')),
                   ),
                 ],
               ),
@@ -561,7 +562,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         children: [
           _buildTagChip(
-            label: '热门',
+            label: context.tr('热门'),
             isActive: activeTagId.isEmpty,
             colors: colors,
             onTap: () => _onSelectTag('', '热门'),
@@ -637,7 +638,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '更多分类',
+              context.tr('更多分类'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
@@ -671,9 +672,9 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         return tagsAsync.when(
           data: (groups) {
             if (groups.isEmpty) {
-              return const SizedBox(
+              return SizedBox(
                 height: 200,
-                child: Center(child: Text('暂无分类数据')),
+                child: Center(child: Text(context.tr('暂无分类数据'))),
               );
             }
             return DefaultTabController(
@@ -745,8 +746,10 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             height: 200,
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (_, __) =>
-              const SizedBox(height: 200, child: Center(child: Text('加载分类失败'))),
+          error: (_, __) => SizedBox(
+            height: 200,
+            child: Center(child: Text(context.tr('加载分类失败'))),
+          ),
         );
       },
     );
@@ -810,7 +813,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               child: Center(
                 child: Text(
-                  '没有更多内容',
+                  context.tr('没有更多内容'),
                   style: TextStyle(fontSize: 12, color: colors.textHint),
                 ),
               ),
@@ -913,7 +916,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${playlist.songCount}首歌曲',
+                    context.tr('${playlist.songCount}首歌曲'),
                     style: TextStyle(fontSize: 11, color: colors.textHint),
                   ),
                 ],
@@ -937,7 +940,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               children: [
                 Icon(Icons.show_chart, size: 48, color: colors.textHint),
                 const SizedBox(height: AppSpacing.md),
-                Text('暂无榜单数据', style: TextStyle(color: colors.textHint)),
+                Text(context.tr('暂无榜单数据'), style: TextStyle(color: colors.textHint)),
               ],
             ),
           );
@@ -951,11 +954,11 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
           children: [
             Icon(Icons.error_outline, size: 48, color: colors.textHint),
             const SizedBox(height: AppSpacing.md),
-            Text('加载失败', style: TextStyle(color: colors.textHint)),
+            Text(context.tr('加载失败'), style: TextStyle(color: colors.textHint)),
             const SizedBox(height: AppSpacing.md),
             TextButton(
               onPressed: () => ref.invalidate(leaderboardsProvider),
-              child: const Text('重试'),
+              child: Text(context.tr('重试')),
             ),
           ],
         ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../core/l10n/l10n.dart';
 import '../domain/models/song.dart';
 import '../../plugin/application/music_source_manager.dart';
 import 'string_similarity.dart';
@@ -35,7 +36,7 @@ class AutoSwitchSourceService {
     Song originalSong, {
     List<String>? activeSourceIds,
   }) async {
-    _showMessage('当前源播放失败，正在尝试自动换源...');
+    _showMessage(tr('当前源播放失败，正在尝试自动换源...'));
 
     var sources = activeSourceIds != null && activeSourceIds.isNotEmpty
         ? List<String>.from(activeSourceIds)
@@ -138,7 +139,7 @@ class AutoSwitchSourceService {
         }
       }
 
-      _showMessage('所有可用源都无法播放');
+      _showMessage(tr('所有可用源都无法播放'));
       return null;
     } on Exception catch (e) {
       _showMessage('$e');

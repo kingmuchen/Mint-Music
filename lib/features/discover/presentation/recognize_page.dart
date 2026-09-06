@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../player/application/playback_controller.dart';
@@ -182,7 +183,7 @@ class _RecognizePageState extends ConsumerState<RecognizePage>
           ),
           const SizedBox(width: AppSpacing.md),
           Text(
-            '听歌识曲',
+            context.tr('听歌识曲'),
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -301,25 +302,25 @@ class _RecognizePageState extends ConsumerState<RecognizePage>
 
     switch (state.status) {
       case RecognizeStatus.idle:
-        text = '点击下方按钮开始';
+        text = context.tr('点击下方按钮开始');
         color = colors.textSecondary;
       case RecognizeStatus.initializing:
-        text = '正在初始化...';
+        text = context.tr('正在初始化...');
         color = colors.textSecondary;
       case RecognizeStatus.recording:
-        text = '正在识别中...';
+        text = context.tr('正在识别中...');
         color = colors.primary;
       case RecognizeStatus.processing:
-        text = '正在处理音频...';
+        text = context.tr('正在处理音频...');
         color = colors.textSecondary;
       case RecognizeStatus.uploading:
-        text = '正在上传识别...';
+        text = context.tr('正在上传识别...');
         color = colors.textSecondary;
       case RecognizeStatus.success:
-        text = '识别成功';
+        text = context.tr('识别成功');
         color = colors.success;
       case RecognizeStatus.failed:
-        text = state.errorMessage ?? '未能识别到歌曲';
+        text = state.errorMessage ?? context.tr('未能识别到歌曲');
         color = colors.error;
     }
 
@@ -361,7 +362,7 @@ class _RecognizePageState extends ConsumerState<RecognizePage>
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            message ?? '未能识别到歌曲',
+            message ?? context.tr('未能识别到歌曲'),
             style: TextStyle(fontSize: 15, color: colors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -377,7 +378,7 @@ class _RecognizePageState extends ConsumerState<RecognizePage>
                 borderRadius: BorderRadius.circular(AppRadius.full),
               ),
               child: Text(
-                '重试',
+                context.tr('重试'),
                 style: TextStyle(
                   fontSize: 14,
                   color: colors.textOnPrimary,
@@ -416,7 +417,7 @@ class _RecognizePageState extends ConsumerState<RecognizePage>
                   Icon(Icons.refresh, size: 16, color: colors.textSecondary),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
-                    '继续识别',
+                    context.tr('继续识别'),
                     style: TextStyle(fontSize: 14, color: colors.textSecondary),
                   ),
                 ],
@@ -488,7 +489,7 @@ class _RecognizePageState extends ConsumerState<RecognizePage>
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      '识别片段: ${_formatTime(song.startTime ~/ 1000)}',
+                      context.tr('识别片段: ${_formatTime(song.startTime ~/ 1000)}'),
                       style: TextStyle(fontSize: 11, color: colors.primary),
                     ),
                   ),
@@ -625,7 +626,7 @@ class _RecognizePageState extends ConsumerState<RecognizePage>
                       ),
                       const SizedBox(width: AppSpacing.xs),
                       Text(
-                        isIdle ? '上传文件' : '取消',
+                        context.tr(isIdle ? '上传文件' : '取消'),
                         style: TextStyle(
                           fontSize: 13,
                           color: colors.textSecondary,

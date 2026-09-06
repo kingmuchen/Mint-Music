@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/utils/responsive_layout.dart';
@@ -146,31 +147,31 @@ class _AppShellState extends ConsumerState<AppShell> {
                 unselectedItemColor: colors.textHint,
                 selectedFontSize: 11,
                 unselectedFontSize: 11,
-                items: const [
+                items: [
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.explore),
-                    activeIcon: Icon(Icons.explore),
-                    label: '发现',
+                    icon: const Icon(Icons.explore),
+                    activeIcon: const Icon(Icons.explore),
+                    label: context.tr('发现'),
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.library_music),
-                    activeIcon: Icon(Icons.library_music),
-                    label: '歌单',
+                    icon: const Icon(Icons.library_music),
+                    activeIcon: const Icon(Icons.library_music),
+                    label: context.tr('歌单'),
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.folder),
-                    activeIcon: Icon(Icons.folder),
-                    label: '本地',
+                    icon: const Icon(Icons.folder),
+                    activeIcon: const Icon(Icons.folder),
+                    label: context.tr('本地'),
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.download),
-                    activeIcon: Icon(Icons.download),
-                    label: '下载',
+                    icon: const Icon(Icons.download),
+                    activeIcon: const Icon(Icons.download),
+                    label: context.tr('下载'),
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.settings),
-                    activeIcon: Icon(Icons.settings),
-                    label: '设置',
+                    icon: const Icon(Icons.settings),
+                    activeIcon: const Icon(Icons.settings),
+                    label: context.tr('设置'),
                   ),
                 ],
               ),
@@ -225,7 +226,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            '薄荷音乐',
+                            context.tr('薄荷音乐'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -346,7 +347,7 @@ class _SidebarNavItem extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      item.label,
+                      context.tr(item.label),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/l10n/l10n.dart';
 import 'package:file_picker/file_picker.dart';
 import '../data/audio_processor.dart';
 import '../data/audio_fingerprint_service.dart';
@@ -80,7 +81,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
     if (!granted) {
       state = state.copyWith(
         status: RecognizeStatus.failed,
-        errorMessage: '需要麦克风权限才能进行识别',
+        errorMessage: tr('需要麦克风权限才能进行识别'),
       );
     }
     return false;
@@ -112,7 +113,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
         debugPrint('[Recognize] AFP 初始化失败');
         state = state.copyWith(
           status: RecognizeStatus.failed,
-          errorMessage: '音频指纹模块初始化失败，请重试',
+          errorMessage: tr('音频指纹模块初始化失败，请重试'),
         );
         _active = false;
         _resumePlayback();
@@ -170,7 +171,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
       debugPrint('[Recognize] startRecording failed: $e');
       state = state.copyWith(
         status: RecognizeStatus.failed,
-        errorMessage: '启动录音失败：$e',
+        errorMessage: tr('启动录音失败：$e'),
       );
       _active = false;
       _resumePlayback();
@@ -267,7 +268,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
       if (!afpReady) {
         state = state.copyWith(
           status: RecognizeStatus.failed,
-          errorMessage: '音频指纹模块初始化失败',
+          errorMessage: tr('音频指纹模块初始化失败'),
         );
         _active = false;
         return;
@@ -282,7 +283,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
       if (pcm64.isEmpty) {
         state = state.copyWith(
           status: RecognizeStatus.failed,
-          errorMessage: '无法解码音频文件',
+          errorMessage: tr('无法解码音频文件'),
         );
         _active = false;
         return;
@@ -302,7 +303,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
       if (fingerprint == null) {
         state = state.copyWith(
           status: RecognizeStatus.failed,
-          errorMessage: '指纹生成失败',
+          errorMessage: tr('指纹生成失败'),
         );
         _active = false;
         return;
@@ -326,14 +327,14 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
       } else {
         state = state.copyWith(
           status: RecognizeStatus.failed,
-          errorMessage: '未识别到歌曲',
+          errorMessage: tr('未识别到歌曲'),
         );
       }
     } catch (e) {
       debugPrint('[Recognize] file recognition failed: $e');
       state = state.copyWith(
         status: RecognizeStatus.failed,
-        errorMessage: '识别失败：$e',
+        errorMessage: tr('识别失败：$e'),
       );
     } finally {
       _active = false;
@@ -381,7 +382,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
       if (pcm.length < 8000) {
         state = state.copyWith(
           status: RecognizeStatus.failed,
-          errorMessage: '录音时间过短',
+          errorMessage: tr('录音时间过短'),
         );
         _resumePlayback();
         return;
@@ -395,7 +396,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
       if (fingerprint == null) {
         state = state.copyWith(
           status: RecognizeStatus.failed,
-          errorMessage: '指纹生成失败',
+          errorMessage: tr('指纹生成失败'),
         );
         _resumePlayback();
         return;
@@ -416,13 +417,13 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
       } else {
         state = state.copyWith(
           status: RecognizeStatus.failed,
-          errorMessage: '未能识别到歌曲',
+          errorMessage: tr('未能识别到歌曲'),
         );
       }
     } catch (e) {
       state = state.copyWith(
         status: RecognizeStatus.failed,
-        errorMessage: '识别失败：$e',
+        errorMessage: tr('识别失败：$e'),
       );
     }
 
@@ -437,7 +438,7 @@ class RecognizeNotifier extends StateNotifier<RecognizeState> {
     _processor.stopRecording();
     state = state.copyWith(
       status: RecognizeStatus.failed,
-      errorMessage: '识别超时，请重试',
+      errorMessage: tr('识别超时，请重试'),
     );
     _resumePlayback();
   }

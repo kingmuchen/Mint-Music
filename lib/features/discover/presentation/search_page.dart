@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../shared/widgets/music_cover_image.dart';
@@ -258,7 +259,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           const Center(child: CircularProgressIndicator()),
                       error: (_, __) => Center(
                         child: Text(
-                          '加载失败',
+                          context.tr('加载失败'),
                           style: TextStyle(color: colors.textHint),
                         ),
                       ),
@@ -339,7 +340,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         }
                       },
                       decoration: InputDecoration(
-                        hintText: '搜索音乐、歌手...',
+                        hintText: context.tr('搜索音乐、歌手...'),
                         border: InputBorder.none,
                         hintStyle: TextStyle(
                           color: colors.textHint,
@@ -432,7 +433,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                               color: colors.textSecondary,
                             ),
                             children: [
-                              const TextSpan(text: '直接搜索：'),
+                              TextSpan(text: context.tr('直接搜索：')),
                               TextSpan(
                                 text: _inputText,
                                 style: TextStyle(
@@ -457,7 +458,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         padding: const EdgeInsets.all(AppSpacing.xl),
                         child: Center(
                           child: Text(
-                            '暂无搜索建议',
+                            context.tr('暂无搜索建议'),
                             style: TextStyle(
                               fontSize: 13,
                               color: colors.textHint,
@@ -530,7 +531,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     padding: const EdgeInsets.all(AppSpacing.xl),
                     child: Center(
                       child: Text(
-                        '获取建议失败',
+                        context.tr('获取建议失败'),
                         style: TextStyle(fontSize: 13, color: colors.textHint),
                       ),
                     ),
@@ -791,7 +792,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           Row(
             children: [
               Text(
-                '搜索历史',
+                context.tr('搜索历史'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -851,7 +852,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '热门搜索',
+            context.tr('热门搜索'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -971,7 +972,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => Center(
-        child: Text('搜索失败', style: TextStyle(color: colors.textHint)),
+        child: Text(context.tr('搜索失败'), style: TextStyle(color: colors.textHint)),
       ),
     );
   }
@@ -1014,7 +1015,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     }
     if (state.error != null && state.songs.isEmpty) {
       return Center(
-        child: Text('鎼滅储澶辫触', style: TextStyle(color: colors.textHint)),
+        child: Text(context.tr('搜索失败'), style: TextStyle(color: colors.textHint)),
       );
     }
     if (state.songs.isEmpty) return _buildEmptyResult(colors);
@@ -1078,7 +1079,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: Row(
         children: [
           _buildTabChip(
-            label: '歌曲',
+            label: context.tr('歌曲'),
             isActive: currentTab == SearchTab.songs,
             colors: colors,
             onTap: () {
@@ -1097,7 +1098,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ),
           const SizedBox(width: AppSpacing.sm),
           _buildTabChip(
-            label: '歌单',
+            label: context.tr('歌单'),
             isActive: currentTab == SearchTab.playlists,
             colors: colors,
             onTap: () {
@@ -1154,7 +1155,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     }
     if (state.error != null && state.playlists.isEmpty) {
       return Center(
-        child: Text('搜索失败', style: TextStyle(color: colors.textHint)),
+        child: Text(context.tr('搜索失败'), style: TextStyle(color: colors.textHint)),
       );
     }
     if (state.playlists.isEmpty) return _buildEmptyPlaylistResult(colors);
@@ -1272,7 +1273,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${playlist.songCount}首歌曲',
+                    context.tr('${playlist.songCount}首歌曲'),
                     style: TextStyle(fontSize: 11, color: colors.textHint),
                   ),
                 ],
@@ -1292,7 +1293,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           Icon(Icons.queue_music, size: 48, color: colors.textHint),
           const SizedBox(height: AppSpacing.md),
           Text(
-            '未找到相关歌单',
+            context.tr('未找到相关歌单'),
             style: TextStyle(fontSize: 14, color: colors.textHint),
           ),
         ],
@@ -1308,7 +1309,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           Icon(Icons.search_off, size: 48, color: colors.textHint),
           const SizedBox(height: AppSpacing.md),
           Text(
-            '未找到相关结果',
+            context.tr('未找到相关结果'),
             style: TextStyle(fontSize: 14, color: colors.textHint),
           ),
         ],

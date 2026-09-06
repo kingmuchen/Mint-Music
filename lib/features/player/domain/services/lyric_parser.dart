@@ -35,8 +35,9 @@ List<LyricLine> parseLrc(String lrcText, {String? tlyric, String? rlyric}) {
     var text = match.group(4)?.trim() ?? '';
 
     text = text.replaceAll(wordTagRegExp, '');
-    // 去掉行尾可能残留的下一个时间标签（形如 `[00:17.111]`），避免污染歌词文本
-    text = text.replaceAll(RegExp(r'\[\d{1,2}:\d{2}(?:\.\d{2,3})?\]\s*$'), '');
+    // 去掉所有内嵌的 LRC 时间标签（形如 `[00:00.47]`），避免污染歌词文本
+    // 这些标签可能出现在歌词文本的任意位置（行首、中间、行尾）
+    text = text.replaceAll(RegExp(r'\[\d{1,2}:\d{2}(?:\.\d{2,3})?\]'), '');
     if (text.isEmpty) continue;
 
     final timestampMs = minutes * 60000 + seconds * 1000 + ms + globalOffset;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../plugin/application/plugin_providers.dart';
@@ -50,7 +51,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
   Future<void> _startTest() async {
     final keyword = _trackController.text.trim();
     if (keyword.isEmpty) {
-      setState(() => _error = '请输入测试曲目');
+      setState(() => _error = context.tr('请输入测试曲目'));
       return;
     }
 
@@ -177,7 +178,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '插件测试',
+                  context.tr('插件测试'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -211,8 +212,8 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
           enabled: !running,
           style: TextStyle(fontSize: 14, color: colors.textPrimary),
           decoration: InputDecoration(
-            labelText: '测试曲目',
-            hintText: '格式：歌名-歌手',
+            labelText: context.tr('测试曲目'),
+            hintText: context.tr('格式：歌名-歌手'),
             hintStyle: TextStyle(fontSize: 13, color: colors.textHint),
             labelStyle: TextStyle(fontSize: 13, color: colors.textSecondary),
             prefixIcon: Icon(
@@ -238,7 +239,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '将逐音源逐音质验证该插件能否解析并播放测试曲目',
+          context.tr('将逐音源逐音质验证该插件能否解析并播放测试曲目'),
           style: TextStyle(fontSize: 11, color: colors.textHint),
         ),
       ],
@@ -285,7 +286,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '正在加载插件…',
+              context.tr('正在加载插件…'),
               style: TextStyle(fontSize: 12, color: colors.textHint),
             ),
           ],
@@ -317,19 +318,23 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              '测试中 $doneSources/${report.sources.length} 个音源…',
+              context.tr(
+                '测试中 $doneSources/${report.sources.length} 个音源…',
+              ),
               style: TextStyle(fontSize: 12, color: colors.textSecondary),
             ),
           ),
           Text(
-            '${report.passedQualityCount}/${report.totalQualityCount} 音质通过',
+            context.tr(
+              '${report.passedQualityCount}/${report.totalQualityCount} 音质通过',
+            ),
             style: TextStyle(fontSize: 12, color: colors.primary),
           ),
         ],
       );
     }
 
-    final stopMark = report.cancelled ? '（已停止）' : '';
+    final stopMark = report.cancelled ? context.tr('（已停止）') : '';
     final allPass =
         report.availableSourceCount == report.sources.length &&
         report.sources.isNotEmpty;
@@ -343,8 +348,10 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
-            '测试完成$stopMark：${report.availableSourceCount}/${report.sources.length} 音源可用 · '
-            '${report.passedQualityCount}/${report.totalQualityCount} 音质通过',
+            context.tr(
+              '测试完成$stopMark：${report.availableSourceCount}/${report.sources.length} 音源可用 · '
+              '${report.passedQualityCount}/${report.totalQualityCount} 音质通过',
+            ),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -402,7 +409,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          '${source.sourceId}源',
+                          context.tr('${source.sourceId}源'),
                           style: TextStyle(
                             fontSize: 10,
                             color: colors.primary,
@@ -422,7 +429,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
             Text(
               source.status == PluginTestSourceStatus.failed
                   ? source.matchText!
-                  : '匹配：${source.matchText}',
+                  : context.tr('匹配：${source.matchText}'),
               style: TextStyle(
                 fontSize: 11,
                 color:
@@ -452,7 +459,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
     switch (source.status) {
       case PluginTestSourceStatus.pending:
         return Text(
-          '待测试',
+          context.tr('待测试'),
           style: TextStyle(fontSize: 11, color: colors.textHint),
         );
       case PluginTestSourceStatus.searching:
@@ -468,7 +475,10 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
               ),
             ),
             const SizedBox(width: 4),
-            Text('搜索中', style: TextStyle(fontSize: 11, color: colors.primary)),
+            Text(
+              context.tr('搜索中'),
+              style: TextStyle(fontSize: 11, color: colors.primary),
+            ),
           ],
         );
       case PluginTestSourceStatus.testing:
@@ -484,7 +494,10 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
               ),
             ),
             const SizedBox(width: 4),
-            Text('测试中', style: TextStyle(fontSize: 11, color: colors.primary)),
+            Text(
+              context.tr('测试中'),
+              style: TextStyle(fontSize: 11, color: colors.primary),
+            ),
           ],
         );
       case PluginTestSourceStatus.failed:
@@ -611,7 +624,11 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
                   ),
                 )
               : const Icon(Icons.stop_circle_outlined, size: 18),
-          label: Text(_stopRequested ? '停止中…' : '停止测试'),
+          label: Text(
+            _stopRequested
+                ? context.tr('停止中…')
+                : context.tr('停止测试'),
+          ),
           style: OutlinedButton.styleFrom(
             foregroundColor: colors.error,
             side: BorderSide(color: colors.error.withValues(alpha: 0.5)),
@@ -629,7 +646,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
             child: ElevatedButton.icon(
               onPressed: _restartTest,
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('重新测试'),
+              label: Text(context.tr('重新测试')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.primary,
                 foregroundColor: colors.textOnPrimary,
@@ -651,7 +668,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
                   borderRadius: BorderRadius.circular(AppRadius.full),
                 ),
               ),
-              child: const Text('关闭'),
+              child: Text(context.tr('关闭')),
             ),
           ),
         ],
@@ -662,7 +679,7 @@ class _PluginTestDialogState extends ConsumerState<PluginTestDialog> {
         child: ElevatedButton.icon(
           onPressed: _startTest,
           icon: const Icon(Icons.play_arrow, size: 18),
-          label: const Text('开始测试'),
+          label: Text(context.tr('开始测试')),
           style: ElevatedButton.styleFrom(
             backgroundColor: colors.primary,
             foregroundColor: colors.textOnPrimary,

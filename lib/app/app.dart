@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/l10n/app_locale.dart';
+import '../core/l10n/l10n.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_provider.dart';
 import '../core/router/app_router.dart';
 import '../core/utils/responsive_layout.dart';
 import '../features/plugin/application/plugin_providers.dart';
 import '../features/settings/application/plugin_providers.dart';
+import '../features/settings/application/settings_providers.dart';
 import '../features/settings/data/plugin_repository.dart';
 
 class App extends ConsumerStatefulWidget {
@@ -22,6 +25,9 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
+    final appLocale = ref.watch(appLocaleProvider);
+    // 同步全局语言,供非 widget 场景(如歌词控制器)使用
+    currentLocale = appLocale;
 
     // Listen for plugin initialization completion to trigger update check
     ref.listen(pluginInitializedProvider, (previous, next) {
@@ -42,31 +48,34 @@ class _AppState extends ConsumerState<App> {
       });
     }
 
-    return MaterialApp.router(
-      title: '薄荷音乐',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: themeMode,
-      routerConfig: appRouter,
-      builder: (context, child) {
-        final deviceType = ResponsiveLayout.getDeviceType(context);
-        final layoutMode = ResponsiveLayout.getLayoutMode(context);
-        final isLandscape = ResponsiveLayout.isLandscape(context);
-        final isTablet = ResponsiveLayout.isTablet(context);
-        return ResponsiveWrapper(
-          deviceType: deviceType,
-          layoutMode: layoutMode,
-          isLandscape: isLandscape,
-          isTablet: isTablet,
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: MediaQuery.of(context).textScaler,
+    return L10n(
+      locale: appLocale,
+      child: MaterialApp.router(
+        title: tr('薄荷音乐'),
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: themeMode,
+        routerConfig: appRouter,
+        builder: (context, child) {
+          final deviceType = ResponsiveLayout.getDeviceType(context);
+          final layoutMode = ResponsiveLayout.getLayoutMode(context);
+          final isLandscape = ResponsiveLayout.isLandscape(context);
+          final isTablet = ResponsiveLayout.isTablet(context);
+          return ResponsiveWrapper(
+            deviceType: deviceType,
+            layoutMode: layoutMode,
+            isLandscape: isLandscape,
+            isTablet: isTablet,
+            child: MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: MediaQuery.of(context).textScaler,
+              ),
+              child: child ?? const SizedBox.shrink(),
             ),
-            child: child ?? const SizedBox.shrink(),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive_layout.dart';
 import '../../../shared/widgets/music_cover_image.dart';
@@ -383,9 +384,9 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        '播放队列',
-                        style: TextStyle(
+                      Text(
+                        context.tr('播放队列'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
@@ -394,7 +395,7 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
                       Row(
                         children: [
                           Text(
-                            '${queue.length}首',
+                            context.tr('${queue.length}首'),
                             style: const TextStyle(color: AppColors.textHint),
                           ),
                           const SizedBox(width: 16),
@@ -403,9 +404,9 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
                               controller.clearQueue();
                               Navigator.pop(ctx);
                             },
-                            child: const Text(
-                              '清空',
-                              style: TextStyle(
+                            child: Text(
+                              context.tr('清空'),
+                              style: const TextStyle(
                                 color: AppColors.primary,
                                 fontSize: 14,
                               ),
@@ -417,11 +418,11 @@ class _FullPlayerPageState extends ConsumerState<FullPlayerPage> {
                   ),
                 ),
                 if (queue.isEmpty)
-                  const Expanded(
+                  Expanded(
                     child: Center(
                       child: Text(
-                        '播放队列为空',
-                        style: TextStyle(color: AppColors.textHint),
+                        context.tr('播放队列为空'),
+                        style: const TextStyle(color: AppColors.textHint),
                       ),
                     ),
                   )
@@ -541,13 +542,13 @@ class _PlayerHeader extends ConsumerWidget {
     String modeTitle;
     switch (playMode) {
       case PlayMode.singleLoop:
-        modeTitle = '单曲循环';
+        modeTitle = context.tr('单曲循环');
         break;
       case PlayMode.shuffle:
-        modeTitle = '随机播放';
+        modeTitle = context.tr('随机播放');
         break;
       case PlayMode.listLoop:
-        modeTitle = '列表循环';
+        modeTitle = context.tr('列表循环');
         break;
     }
 
@@ -746,7 +747,7 @@ class _PlayerLyricsPage extends ConsumerWidget {
         if (lyricState.isLoading && lyricState.lines.isEmpty) {
           return Center(
             child: Text(
-              '加载歌词中...',
+              context.tr('加载歌词中...'),
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white.withValues(alpha: 0.4),
@@ -770,7 +771,7 @@ class _PlayerLyricsPage extends ConsumerWidget {
         if (lyricState.lines.isEmpty) {
           return Center(
             child: Text(
-              '暂无歌词',
+              context.tr('暂无歌词'),
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white.withValues(alpha: 0.4),
@@ -884,7 +885,7 @@ class _PlayerSongInfo extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  song?.title ?? '未知歌曲',
+                  song?.title ?? context.tr('未知歌曲'),
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -895,7 +896,7 @@ class _PlayerSongInfo extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  song?.artist ?? '未知歌手',
+                  song?.artist ?? context.tr('未知歌手'),
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withValues(alpha: 0.6),

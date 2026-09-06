@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
+import '../../../core/l10n/l10n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/share_preview_dialog.dart';
 import '../../../shared/widgets/music_cover_image.dart';
@@ -248,7 +249,7 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                                         lyricState.lines.isEmpty)
                                       Center(
                                         child: Text(
-                                          '加载歌词中...',
+                                          context.tr('加载歌词中...'),
                                           style: TextStyle(
                                             fontSize: 18,
                                             color: activeColor.withValues(
@@ -275,7 +276,7 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                                     else if (lyricState.lines.isEmpty)
                                       Center(
                                         child: Text(
-                                          '暂无歌词',
+                                          context.tr('暂无歌词'),
                                           style: TextStyle(
                                             fontSize: 18,
                                             color: activeColor.withValues(
@@ -491,7 +492,7 @@ class _LyricPageState extends ConsumerState<LyricPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  song?.title ?? '未知歌曲',
+                  song?.title ?? context.tr('未知歌曲'),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -502,7 +503,7 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  song?.artist ?? '未知歌手',
+                  song?.artist ?? context.tr('未知歌手'),
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.white.withValues(alpha: 0.6),
@@ -562,9 +563,9 @@ class _LyricPageState extends ConsumerState<LyricPage> {
             .removeSongFromPlaylist('__favorites__', song.id);
         if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('已取消收藏'),
-              duration: Duration(seconds: 1),
+            SnackBar(
+              content: Text(context.tr('已取消收藏')),
+              duration: const Duration(seconds: 1),
             ),
           );
       } else {
@@ -573,9 +574,9 @@ class _LyricPageState extends ConsumerState<LyricPage> {
             .addSongToPlaylist('__favorites__', song);
         if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('已添加到我的收藏'),
-              duration: Duration(seconds: 1),
+            SnackBar(
+              content: Text(context.tr('已添加到我的收藏')),
+              duration: const Duration(seconds: 1),
             ),
           );
       }
@@ -615,9 +616,9 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                   Icons.playlist_add,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text(
-                  '添加到歌单',
-                  style: TextStyle(color: AppColors.textPrimary),
+                title: Text(
+                  context.tr('添加到歌单'),
+                  style: const TextStyle(color: AppColors.textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -629,9 +630,9 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                   Icons.speed,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text(
-                  '播放速度',
-                  style: TextStyle(color: AppColors.textPrimary),
+                title: Text(
+                  context.tr('播放速度'),
+                  style: const TextStyle(color: AppColors.textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -643,9 +644,9 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                   Icons.share,
                   color: AppColors.textSecondary,
                 ),
-                title: const Text(
-                  '分享',
-                  style: TextStyle(color: AppColors.textPrimary),
+                title: Text(
+                  context.tr('分享'),
+                  style: const TextStyle(color: AppColors.textPrimary),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -690,9 +691,9 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                '播放速度',
-                style: TextStyle(
+              Text(
+                context.tr('播放速度'),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -768,9 +769,9 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '添加到歌单',
-                  style: TextStyle(
+                Text(
+                  context.tr('添加到歌单'),
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -791,7 +792,7 @@ class _LyricPageState extends ConsumerState<LyricPage> {
                       if (mounted)
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('已添加到「${playlist.name}」'),
+                            content: Text(context.tr('已添加到「${playlist.name}」')),
                             duration: const Duration(seconds: 1),
                           ),
                         );
