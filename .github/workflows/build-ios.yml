@@ -31,7 +31,6 @@ jobs:
         working-directory: ios
         run: pod install --repo-update
 
-      # Override xcconfig to fully disable code signing for CI builds
       - name: Disable code signing
         run: |
           cp ios/Flutter/Debug.xcconfig ios/Flutter/Debug.xcconfig.bak 2>/dev/null || true
@@ -40,22 +39,95 @@ jobs:
           echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Debug.xcconfig
           echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Release.xcconfig
 
-      - name: Build iOS (no codesign)
-        run: flutter build ipa --release --no-codesign
-
-      - name: Find produced IPA
+      - name: Configure signing to not required
         run: |
-          echo "=== Looking for IPA file ==="
-          # Flutter may place IPA at various paths; list all candidates
-          find . -name "*.ipa" -type f 2>/dev/null | head -10
-          echo "=== IPA search complete ==="
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' ios/Runner.xcodeproj/project.pbxproj || true
+          sed -i '' 's/DEVELOPMENT_TEAM = "[^"]*"/DEVELOPMENT_TEAM = ""/g' ios/Runner.xcodeproj/project.pbxproj || true
+
+      - name: Build iOS archive
+        run: |
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/Runner.xcarchive \
+            -destination 'generic/platform=iOS' \
+            -jobs 4 \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE="" \
+            archive 2>&1 | tail -20
+
+      - name: Export IPA
+        run: |
+          cat > ios/ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+          </dict>
+          </plist>
+          EOF
+
+          mkdir -p build/ios/ipa
+
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath build/ios/ipa \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE="" 2>&1 | tail -20
+
+          echo "=== IPA export complete ==="
+          ls -la build/ios/ipa/ 2>/dev/null || echo "No files in build/ios/ipa/"
+
+      - name: Restore xcconfig
+        if: always()
+        run: |
+          cp ios/Flutter/Debug.xcconfig.bak ios/Flutter/Debug.xcconfig 2>/dev/null || true
+          cp ios/Flutter/Release.xcconfig.bak ios/Flutter/Release.xcconfig 2>/dev/null || true
+          rm -f ios/Flutter/Debug.xcconfig.bak ios/Flutter/Release.xcconfig.bak
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: mintmusic-ios-unsigned
-          # Upload whatever IPA was found; if none, this will fail gracefully
-          path: |
-            **/*.ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 7
+          if-no-files-found: error
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mintmusic-android
+          path: build/app/outputs/flutter-apk/*.apk
           retention-days: 7
           if-no-files-found: error
