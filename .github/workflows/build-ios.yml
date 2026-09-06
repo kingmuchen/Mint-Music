@@ -39,40 +39,53 @@ jobs:
           echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Debug.xcconfig
           echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Release.xcconfig
 
-      - name: Debug Flutter build ipa help
-        run: flutter build ipa -h 2>&1 | grep -E "no-codesign|export|method" || true
+      - name: Build iOS archive (no codesign)
+        run: flutter build ipa --release --no-codesign
 
-      - name: Build iOS IPA
-        id: build_ipa
+      - name: Export IPA from archive
         run: |
-          flutter build ipa --release --no-codesign 2>&1 | tee build.log
-          echo "Exit code: $?"
-          
-      - name: Debug - list build outputs
+          cat > ios/ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+          </dict>
+          </plist>
+          EOF
+
+          mkdir -p build/ios/ipa
+
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath build/ios/ipa \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE="" 2>&1 | tail -30
+
+          echo "=== Export result ==="
+          ls -la build/ios/ipa/ 2>/dev/null
+
+      - name: Restore xcconfig
         if: always()
         run: |
-          echo "=== build/ios/ contents ==="
-          ls -laR build/ios/ 2>/dev/null | head -50 || echo "build/ios/ not found"
-          echo ""
-          echo "=== Searching for .ipa files ==="
-          find . -name "*.ipa" -type f 2>/dev/null || echo "No .ipa files found"
-          echo ""
-          echo "=== Searching for .xcarchive ==="
-          find . -name "*.xcarchive" -type d 2>/dev/null || echo "No .xcarchive found"
-          echo ""
-          echo "=== Last 30 lines of build.log ==="
-          tail -30 build.log 2>/dev/null || echo "No build.log"
+          cp ios/Flutter/Debug.xcconfig.bak ios/Flutter/Debug.xcconfig 2>/dev/null || true
+          cp ios/Flutter/Release.xcconfig.bak ios/Flutter/Release.xcconfig 2>/dev/null || true
+          rm -f ios/Flutter/Debug.xcconfig.bak ios/Flutter/Release.xcconfig.bak
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: mintmusic-ios-unsigned
-          path: |
-            build/ios/ipa/*.ipa
-            build/ios/iphoneos/*.ipa
-            **/*.ipa
+          path: build/ios/ipa/*.ipa
           retention-days: 7
-          if-no-files-found: warning
+          if-no-files-found: error
 
   build-android:
     name: Build Android APK
