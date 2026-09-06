@@ -39,12 +39,20 @@ jobs:
           echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Debug.xcconfig
           echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Release.xcconfig
 
-      - name: Build iOS archive (no codesign)
+      - name: Build iOS archive
         run: flutter build ipa --release --no-codesign
+
+      - name: Verify archive exists
+        run: |
+          echo "=== Checking archive ==="
+          ls -la build/ios/archive/Runner.xcarchive/ 2>/dev/null
+          ls -la build/ios/archive/Runner.xcarchive/Products/ 2>/dev/null
 
       - name: Export IPA from archive
         run: |
-          cat > ios/ExportOptions.plist << 'EOF'
+          mkdir -p build/ios/ipa
+
+          cat > /tmp/ExportOptions.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -53,24 +61,33 @@ jobs:
             <string>development</string>
             <key>signingStyle</key>
             <string>manual</string>
+            <key>compileBitcode</key>
+            <false/>
+            <key>teamID</key>
+            <string></string>
+            <key>signingCertificate</key>
+            <string>-</string>
           </dict>
           </plist>
           EOF
 
-          mkdir -p build/ios/ipa
-
+          echo "=== Running xcodebuild -exportArchive ==="
           xcodebuild -exportArchive \
             -archivePath build/ios/archive/Runner.xcarchive \
-            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
             -exportPath build/ios/ipa \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE="" 2>&1 | tail -30
+            PROVISIONING_PROFILE="" 2>&1
 
-          echo "=== Export result ==="
-          ls -la build/ios/ipa/ 2>/dev/null
+          EXPORT_EXIT=$?
+          echo ""
+          echo "=== Export exit code: $EXPORT_EXIT ==="
+          echo ""
+          echo "=== build/ios/ipa/ contents ==="
+          ls -laR build/ios/ipa/ 2>/dev/null || echo "Directory empty or not found"
 
       - name: Restore xcconfig
         if: always()
