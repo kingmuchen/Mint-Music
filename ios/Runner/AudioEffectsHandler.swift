@@ -14,7 +14,7 @@ import Flutter
 /// The design is intentionally "accept and succeed" so the Dart settings
 /// UI works identically on both platforms. Future iOS versions could hook
 /// into `AVAudioEngine` or a custom `AudioUnit` to provide real effects.
-class AudioEffectsHandler: NSObject {
+class AudioEffectsHandler: NSObject, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
     private var displayLink: CADisplayLink?
     private var currentBands: [Double] = Array(repeating: 0.0, count: 32)
@@ -51,13 +51,13 @@ class AudioEffectsHandler: NSObject {
 
     // MARK: - FlutterStreamHandler (Visualizer)
 
-    func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    @objc func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
         startVisualizerSimulation()
         return nil
     }
 
-    func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    @objc func onCancel(withArguments arguments: Any?) -> FlutterError? {
         stopVisualizerSimulation()
         self.eventSink = nil
         return nil
