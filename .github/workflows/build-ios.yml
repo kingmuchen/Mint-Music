@@ -9,7 +9,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -39,70 +39,40 @@ jobs:
           echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Debug.xcconfig
           echo '#include "NoCodesign.xcconfig"' > ios/Flutter/Release.xcconfig
 
-      - name: Configure signing to not required
+      - name: Debug Flutter build ipa help
+        run: flutter build ipa -h 2>&1 | grep -E "no-codesign|export|method" || true
+
+      - name: Build iOS IPA
+        id: build_ipa
         run: |
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' ios/Runner.xcodeproj/project.pbxproj || true
-          sed -i '' 's/DEVELOPMENT_TEAM = "[^"]*"/DEVELOPMENT_TEAM = ""/g' ios/Runner.xcodeproj/project.pbxproj || true
-
-      - name: Build iOS archive
-        run: |
-          xcodebuild -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath build/Runner.xcarchive \
-            -destination 'generic/platform=iOS' \
-            -jobs 4 \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE="" \
-            archive 2>&1 | tail -20
-
-      - name: Export IPA
-        run: |
-          cat > ios/ExportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>development</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-          </dict>
-          </plist>
-          EOF
-
-          mkdir -p build/ios/ipa
-
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportOptionsPlist ios/ExportOptions.plist \
-            -exportPath build/ios/ipa \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE="" 2>&1 | tail -20
-
-          echo "=== IPA export complete ==="
-          ls -la build/ios/ipa/ 2>/dev/null || echo "No files in build/ios/ipa/"
-
-      - name: Restore xcconfig
+          flutter build ipa --release --no-codesign 2>&1 | tee build.log
+          echo "Exit code: $?"
+          
+      - name: Debug - list build outputs
         if: always()
         run: |
-          cp ios/Flutter/Debug.xcconfig.bak ios/Flutter/Debug.xcconfig 2>/dev/null || true
-          cp ios/Flutter/Release.xcconfig.bak ios/Flutter/Release.xcconfig 2>/dev/null || true
-          rm -f ios/Flutter/Debug.xcconfig.bak ios/Flutter/Release.xcconfig.bak
+          echo "=== build/ios/ contents ==="
+          ls -laR build/ios/ 2>/dev/null | head -50 || echo "build/ios/ not found"
+          echo ""
+          echo "=== Searching for .ipa files ==="
+          find . -name "*.ipa" -type f 2>/dev/null || echo "No .ipa files found"
+          echo ""
+          echo "=== Searching for .xcarchive ==="
+          find . -name "*.xcarchive" -type d 2>/dev/null || echo "No .xcarchive found"
+          echo ""
+          echo "=== Last 30 lines of build.log ==="
+          tail -30 build.log 2>/dev/null || echo "No build.log"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: mintmusic-ios-unsigned
-          path: build/ios/ipa/*.ipa
+          path: |
+            build/ios/ipa/*.ipa
+            build/ios/iphoneos/*.ipa
+            **/*.ipa
           retention-days: 7
-          if-no-files-found: error
+          if-no-files-found: warning
 
   build-android:
     name: Build Android APK
