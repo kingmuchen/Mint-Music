@@ -15,7 +15,7 @@ import UIKit
 /// exactly like the Android handler. FLAC/OGG/WMA cannot be rewritten by
 /// AVFoundation, so they return an error that the Dart layer logs, keeping
 /// the download pipeline alive.
-class TagWriterHandler: NSObject, FlutterMethodCallHandler {
+class TagWriterHandler: NSObject {
     static func register(with messenger: FlutterBinaryMessenger) {
         let channel = FlutterMethodChannel(
             name: "com.mintmusic/tag_writer",
@@ -162,25 +162,25 @@ class TagWriterHandler: NSObject, FlutterMethodCallHandler {
 
     private func id3Identifier(for field: String) -> AVMetadataIdentifier {
         switch field {
-        case "title": return .id3MetadataTitle
-        case "artist": return .id3MetadataArtist
-        case "album": return .id3MetadataAlbumTitle
-        case "albumArtist": return .id3MetadataAlbumArtist
-        case "lyrics": return .id3MetadataLyrics
-        case "artwork": return .id3MetadataAttachedPicture
-        default: return .id3MetadataTitle
+        case "title": return AVMetadataIdentifier(rawValue: "TIT2")
+        case "artist": return AVMetadataIdentifier(rawValue: "TPE1")
+        case "album": return AVMetadataIdentifier(rawValue: "TALB")
+        case "albumArtist": return AVMetadataIdentifier(rawValue: "TPE2")
+        case "lyrics": return AVMetadataIdentifier(rawValue: "USLT")
+        case "artwork": return AVMetadataIdentifier(rawValue: "APIC")
+        default: return AVMetadataIdentifier(rawValue: "TIT2")
         }
     }
 
     private func itunesIdentifier(for field: String) -> AVMetadataIdentifier {
         switch field {
-        case "title": return .iTunesMetadataTitle
-        case "artist": return .iTunesMetadataArtist
-        case "album": return .iTunesMetadataAlbum
-        case "albumArtist": return .iTunesMetadataAlbumArtist
-        case "lyrics": return .iTunesMetadataLyrics
-        case "artwork": return .iTunesMetadataCoverArt
-        default: return .iTunesMetadataTitle
+        case "title": return AVMetadataIdentifier(rawValue: "©nam")
+        case "artist": return AVMetadataIdentifier(rawValue: "©ART")
+        case "album": return AVMetadataIdentifier(rawValue: "©alb")
+        case "albumArtist": return AVMetadataIdentifier(rawValue: "aART")
+        case "lyrics": return AVMetadataIdentifier(rawValue: "©lyr")
+        case "artwork": return AVMetadataIdentifier(rawValue: "covr")
+        default: return AVMetadataIdentifier(rawValue: "©nam")
         }
     }
 
@@ -226,7 +226,8 @@ class TagWriterHandler: NSObject, FlutterMethodCallHandler {
             // Android which only updates the provided fields.
             var items: [AVMetadataItem] = asset.metadata(forFormat: info.metadataFormat)
             items.removeAll { item in
-                self.replacedIdentifiers(info: info).contains(item.identifier)
+                guard let id = item.identifier else { return false }
+                return self.replacedIdentifiers(info: info).contains(id)
             }
 
             var newItems: [AVMutableMetadataItem] = []
@@ -273,7 +274,7 @@ class TagWriterHandler: NSObject, FlutterMethodCallHandler {
         ]
         // iTunes artwork historically uses the "covr" key with the "itsk"
         // key space; drop it explicitly so stale cover art is replaced.
-        ids.append(.iTunesMetadataCoverArt)
+        ids.append(AVMetadataIdentifier(rawValue: "covr"))
         return Set(ids)
     }
 
@@ -288,7 +289,7 @@ class TagWriterHandler: NSObject, FlutterMethodCallHandler {
         item.key = identifier.rawValue as NSString
         item.keySpace = info.keySpace
         item.value = value
-        item.dataType = kCMMetadataBaseDataType_UTF8 as String
+        item.dataType = "com.apple.metadata.datatype.utf8" as String
         return item
     }
 
@@ -302,7 +303,7 @@ class TagWriterHandler: NSObject, FlutterMethodCallHandler {
         item.key = identifier.rawValue as NSString
         item.keySpace = info.keySpace
         item.value = data as NSData
-        item.dataType = kCMMetadataBaseDataType_Data as String
+        item.dataType = "com.apple.metadata.datatype.data" as String
         return item
     }
 
@@ -338,7 +339,8 @@ class TagWriterHandler: NSObject, FlutterMethodCallHandler {
             return
         }
 
-        composition.metadata = items
+        // composition.metadata is get-only in newer iOS SDK; 
+        // metadata is set on the export session instead (line below)
 
         guard let session = AVAssetExportSession(
             asset: composition,

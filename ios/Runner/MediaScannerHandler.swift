@@ -11,7 +11,7 @@ import UIKit
 /// - `openManageStorageSettings`: Android-only "All files access" settings
 ///   screen; not applicable on iOS, so it reports false like a device that
 ///   does not need it.
-class MediaScannerHandler: NSObject, FlutterMethodCallHandler {
+class MediaScannerHandler: NSObject {
     static func register(with messenger: FlutterBinaryMessenger) {
         let channel = FlutterMethodChannel(
             name: "com.mintmusic/media",

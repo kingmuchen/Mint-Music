@@ -14,7 +14,7 @@ import Flutter
 /// The design is intentionally "accept and succeed" so the Dart settings
 /// UI works identically on both platforms. Future iOS versions could hook
 /// into `AVAudioEngine` or a custom `AudioUnit` to provide real effects.
-class AudioEffectsHandler: NSObject, FlutterMethodCallHandler, FlutterStreamHandler {
+class AudioEffectsHandler: NSObject {
     private var eventSink: FlutterEventSink?
     private var displayLink: CADisplayLink?
     private var currentBands: [Double] = Array(repeating: 0.0, count: 32)
